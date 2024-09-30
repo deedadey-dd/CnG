@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}My Wishlists{% endblock %}
+
+{% block content %}
+
+<h2 class="mt-5">My Wishlists</h2>
+
+<div class="row">
+    {% for wishlist, color in wishlists_with_color %}
+        <div class="col-md-4 mb-4">
+            <div class="card" style="background-color: #{{ color }};">
+                <div class="card-body">
+                    <h5 class="card-title title-highlight">{{ wishlist.title }}</h5>
+                    <p class="card-text">{{ wishlist.description }}</p>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+
+{% endblock %}
