@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+
+{% if form.errors %}
+    <div class="alert alert-danger">
+        {{ form.errors }}
+    </div>
+{% endif %}
+
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="mt-5">Login</h2>
+                    <form method="POST" action="{% url 'custom_login' %}">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label for="identifier">Username or Email</label>
+                            <input type="text" class="form-control" id="identifier" name="identifier" placeholder="Enter username or email" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
+                        </div>
+                        <div class="form-group form-check">
+                            <input type="checkbox" class="form-check-input" id="remember" name="remember">
+                            <label class="form-check-label" for="remember">Remember Me</label>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Login</button>
+                    </form>
+                    {% if messages %}
+                        <div class="alert alert-danger mt-3">
+                            {% for message in messages %}
+                                {{ message }}
+                            {% endfor %}
+                            <ul>
+                                <li>
+                                    <a href="{% url 'password_reset' %}" class="alert-link">Reset Password</a>.
+                                </li>
+                                <li>
+                                    <a href="#" class="nav-link" data-toggle="modal" data-target="#registerModal">Create New Account</a>.
+                                </li>
+                            </ul>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+ <!-- Registration Modal -->
+    <div class="modal fade" id="registerModal" tabindex="-1" role="dialog" aria-labelledby="registerModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="registerModalLabel">Register</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="container mt-5">
+                        <h2 class="text-center mb-4">Register</h2>
+                        <div class="row justify-content-center">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-body text-center">
+                                        <h3 class="card-title">Register as User</h3>
+                                        <p class="card-text">Create an account as a user to browse and purchase products.</p>
+                                        <a href="{% url 'user_register' %}" class="btn btn-primary">User <br> Registration</a>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-body text-center">
+                                        <h3 class="card-title">Register as Vendor</h3>
+                                        <p class="card-text">Sign up as a vendor to sell your products on our platform.</p>
+                                        <a href="{% url 'vendor_register' %}" class="btn btn-primary">Vendor <br> Registration</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+
+{% endblock %}
