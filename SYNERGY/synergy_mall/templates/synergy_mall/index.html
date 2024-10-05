@@ -8,118 +8,56 @@
 <!--<h2 class="mt-5">Store Items</h2>-->
 
 <div class="container mt-5">
-    <!-- Search Bar -->
-<form method="GET" action="{% url 'search_product' %}">
-    <div class="input-group mb-3">
-        <input type="text" class="form-control" placeholder="Search products..." name="q" value="{{ query }}">
-        <div class="input-group-append">
-            <button class="btn btn-primary" type="submit">Search</button>
-        </div>
-    </div>
-
-    <!-- Filters -->
-    <div class="row mb-4">
-        <!-- Category Filter -->
-        <div class="col-md-3">
-            <label for="category">Category</label>
-            <select name="category" class="form-control" id="category">
-                <option value="">All Categories</option>
-                {% for category in categories %}
-                    <option value="{{ category.id }}" {% if selected_category == category.id|stringformat:"s" %}selected{% endif %}>{{ category.name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-
-        <!-- Condition Filter -->
-        <div class="col-md-3">
-            <label for="condition">Condition</label>
-            <select name="condition" class="form-control" id="condition">
-                <option value="">Any Condition</option>
-                <option value="new" {% if selected_condition == "new" %}selected{% endif %}>New</option>
-                <option value="used" {% if selected_condition == "used" %}selected{% endif %}>Used</option>
-                <option value="refurbished" {% if selected_condition == "refurbished" %}selected{% endif %}>Refurbished</option>
-            </select>
-        </div>
-
-        <!-- Vendor Filter -->
-        <div class="col-md-3">
-            <label for="vendor">Vendor</label>
-            <select name="vendor" class="form-control" id="vendor">
-                <option value="">All Vendors</option>
-                {% for vendor in vendors %}
-                    <option value="{{ vendor.vendor }}" {% if selected_vendor == vendor.vendor|stringformat:"s" %}selected{% endif %}>{{ vendor.vendor }}</option>
-                {% endfor %}
-            </select>
-        </div>
-
-        <!-- Submit Button -->
-        <div class="col-md-3 align-self-end">
-            <button class="btn btn-secondary" type="submit">Filter</button>
-        </div>
-    </div>
-</form>
-
-<!-- Product List -->
-<div class="row">
-    {% for product in products %}
-    <div class="col-md-4">
-        <div class="card mb-3">
-            <a href="{% url 'product_detail' product.id %}">View Details</a>
-            <img class="card-img-top" src="{{ product.image.url }}" alt="{{ product.name }}">
-            <div class="card-body">
-                <h5 class="card-title">{{ product.name }}</h5>
-                <p class="card-text">{{ product.description }}</p>
-                <p class="card-text"><strong>Price:</strong> {{ product.price }}</p>
-                <a href="{% url 'product_detail' product.id %}" class="btn btn-primary">View Details</a>
-            </div>
-        </div>
-    </div>
-    {% endfor %}
-</div>
-
 
     <!-- Product Cards -->
+    <div class="container">
     <div class="row">
-        {% for product in page_obj %}
-        <div class="col-md-4 mb-4">
-            <div class="card">
-                <a href="{% url 'product_detail' product.id %}">
-                    <img src="{{ product.image.url }}" class="card-img-top" alt="{{ product.name }}">
-                </a>
+        {% for product in products_page %}
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <img src="{{ product.image.url }}" class="card-img-top" alt="{{ product.name }}">
                 <div class="card-body">
                     <h5 class="card-title">{{ product.name }}</h5>
-                    <p class="card-text">{{ product.description|truncatechars:50 }}</p>
-                    <p class="card-text">Price: <strong>${{ product.price }}</strong> </p>
-                    <p class="card-text">Vendor: <strong>{{ product.vendor.company_name }}</strong></p>
+                    <p class="card-text">{{ product.description|truncatewords:15 }}</p>
+                    <p class="card-text">Price: {{ product.price }}</p>
+                    <a href="#" class="btn btn-primary">Buy Item</a>
+                    <a href="#" class="btn btn-secondary">Gift Item</a>
 
-                    <!-- Conditional Buttons -->
-                    <div class="d-flex justify-content-between">
-                        <a href="{% url 'gift_item' product.id %}" class="btn btn-success">Gift Item</a>
-                        <a href="{% url 'buy_item' product.id %}" class="btn btn-primary">Buy Item</a>
+                    {% if user.is_authenticated %}
+                        <!-- Add to Wishlist Button opens a modal to select the wishlist -->
+                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#wishlistModal{{ product.id }}">
+                            Add to Wishlist
+                        </button>
 
-                        <!-- Add to Wishlist Button -->
-                        {% if user.is_authenticated %}
-<!--                        <a href="#" class="btn btn-warning" data-toggle="modal" data-target="#wishlistModal">Add to Wishlist</a>-->
-
-                            <!-- Dropdown to select a wishlist -->
-                            <div class="dropdown">
-                                <button class="btn btn-primary dropdown-toggle" type="button" id="dropdownMenuButton{{ product.id }}" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                    Add to Wishlist
-                                </button>
-                                <div class="dropdown-menu" aria-labelledby="dropdownMenuButton{{ product.id }}">
-                                    {% for wishlist in wishlists %}
-                                    <a class="dropdown-item" href="{% url 'add_product_to_wishlist' wishlist_id=wishlist.id product_id=product.id %}">
-                                        {{ wishlist.title }}
-                                    </a>
-                                    {% endfor %}
+                        <!-- Modal -->
+                        <div class="modal fade" id="wishlistModal{{ product.id }}" tabindex="-1" aria-labelledby="wishlistModalLabel" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="wishlistModalLabel">Add {{ product.name }} to Wishlist</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <form method="post" action="#">
+                                            {% csrf_token %}
+                                            <div class="mb-3">
+                                                <label for="wishlistSelect" class="form-label">Select Wishlist</label>
+                                                <select id="wishlistSelect" name="wishlist_id" class="form-select">
+                                                    {% for wishlist in request.user.wishlist_set.all %}
+                                                    <option value="{{ wishlist.id }}">{{ wishlist.title }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                            <button type="submit" class="btn btn-primary">Add</button>
+                                        </form>
+                                    </div>
                                 </div>
                             </div>
-
-
-                        {% else %}
-                        <a href="{% url 'add_to_cart' product.id %}" class="btn btn-warning">Add to Cart</a>
-                        {% endif %}
-                    </div>
+                        </div>
+                    {% else %}
+                        <!-- Add to Cart for non-authenticated users -->
+                        <a href="#" class="btn btn-warning">Add to Cart</a>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -127,67 +65,23 @@
     </div>
 
     <!-- Pagination -->
-    <nav>
-        <ul class="pagination justify-content-center">
-            {% if page_obj.has_previous %}
-            <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}">Previous</a></li>
+    <nav aria-label="Page navigation example">
+        <ul class="pagination">
+            {% if products_page.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page={{ products_page.previous_page_number }}">Previous</a></li>
             {% endif %}
 
-            {% for num in page_obj.paginator.page_range %}
-                {% if page_obj.number == num %}
-                <li class="page-item active"><a class="page-link" href="#">{{ num }}</a></li>
-                {% elif num > page_obj.number|add:'-5' and num < page_obj.number|add:'5' %}
-                <li class="page-item"><a class="page-link" href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}">{{ num }}</a></li>
-                {% endif %}
+            {% for page_num in products_page.paginator.page_range %}
+            <li class="page-item {% if products_page.number == page_num %}active{% endif %}">
+                <a class="page-link" href="?page={{ page_num }}">{{ page_num }}</a>
+            </li>
             {% endfor %}
 
-            {% if page_obj.has_next %}
-            <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}">Next</a></li>
+            {% if products_page.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ products_page.next_page_number }}">Next</a></li>
             {% endif %}
         </ul>
     </nav>
 </div>
-
-<!-- Wishlist Modal -->
-<div class="modal fade" id="wishlistModal" tabindex="-1" role="dialog" aria-labelledby="wishlistModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="wishlistModalLabel">Select Wishlist</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <form id="wishlistForm" method="POST">
-          {% csrf_token %}
-            <!-- Display the user's active wishlists -->
-            <div id="wishlistOptions">
-              <label>Select your wishlist:</label>
-              <select name="wishlist_id" class="form-control">
-                {% for wishlist in wishlists %}
-                  <option value="{{ wishlist.id }}">{{ wishlist.title }}</option>
-                {% endfor %}
-              </select>
-            </div>
-          <input type="hidden" name="product_id" value="{{ product.id }}">
-          <button type="submit" class="btn btn-primary mt-3">Add to Wishlist</button>
-        </form>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    $('#giftModal').on('show.bs.modal', function (event) {
-        var button = $(event.relatedTarget);
-        var itemId = button.data('item-id');
-        var modal = $(this);
-        modal.find('.modal-body #gift_item_id').val(itemId);
-    });
-});
-
-</script>
 {% endblock %}
 

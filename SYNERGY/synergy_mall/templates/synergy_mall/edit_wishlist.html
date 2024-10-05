@@ -2,29 +2,29 @@
 
 {% block content %}
 <div class="container">
-    <h2>Create New Wishlist</h2>
+    <h2>Edit Wishlist</h2>
     <form method="POST">
         {% csrf_token %}
         <div class="mb-3">
             <label for="title" class="form-label">Title</label>
-            <input type="text" class="form-control" id="title" name="title" required>
+            <input type="text" class="form-control" id="title" name="title" value="{{ wishlist.title }}" required>
         </div>
         <div class="mb-3">
             <label for="description" class="form-label">Description</label>
-            <textarea class="form-control" id="description" name="description"></textarea>
+            <textarea class="form-control" id="description" name="description">{{ wishlist.description }}</textarea>
         </div>
         <div class="mb-3">
             <label for="privacy" class="form-label">Privacy</label>
             <select class="form-select" id="privacy" name="privacy">
-                <option value="private">Private</option>
-                <option value="public">Public</option>
+                <option value="private" {% if wishlist.privacy == 'private' %}selected{% endif %}>Private</option>
+                <option value="public" {% if wishlist.privacy == 'public' %}selected{% endif %}>Public</option>
             </select>
         </div>
         <div class="mb-3">
             <label for="expiry_date" class="form-label">Expiry Date (optional)</label>
-            <input type="date" class="form-control" id="expiry_date" name="expiry_date">
+            <input type="date" class="form-control" id="expiry_date" name="expiry_date" value="{{ wishlist.expiry_date|date:'Y-m-d' }}">
         </div>
-        <button type="submit" class="btn btn-primary">Create Wishlist</button>
+        <button type="submit" class="btn btn-primary">Update Wishlist</button>
     </form>
 </div>
 {% endblock %}

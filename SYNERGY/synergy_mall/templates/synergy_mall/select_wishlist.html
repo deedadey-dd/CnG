@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <h2>Select Wishlist</h2>
+    <p>Select one of your wishlists to add "{{ product.name }}" to it.</p>
+
+    {% if wishlists %}
+    <form method="post" action="{% url 'add_to_wishlist' product.id %}">
+        {% csrf_token %}
+
+        <div class="mb-3">
+            <label for="wishlistSelect" class="form-label">Choose Wishlist</label>
+            <select id="wishlistSelect" name="wishlist_id" class="form-select" required>
+                <option value="" disabled selected>Select a wishlist</option>
+                {% for wishlist in wishlists %}
+                    <option value="{{ wishlist.id }}">{{ wishlist.title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Add to Wishlist</button>
+        <a href="{% url 'homepage' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+    {% else %}
+    <p>You have no wishlists yet. <a href="{% url 'create_wishlist' %}">Create a new wishlist</a>.</p>
+    {% endif %}
+</div>
+{% endblock %}

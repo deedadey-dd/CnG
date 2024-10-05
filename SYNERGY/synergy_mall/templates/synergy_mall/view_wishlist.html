@@ -1,63 +1,16 @@
 {% extends 'base.html' %}
 
 {% block content %}
-
-<div class="d-flex justify-content-between align-items-center">
+<div class="container">
     <h2>{{ wishlist.title }}</h2>
-    {% if wishlist.days_left < 0 %}
-        <h3 class="expired-label">EXPIRED</h3>
-    {% endif %}
+    <p>{{ wishlist.description }}</p>
+    <p>Privacy: {{ wishlist.get_privacy_display }}</p>
+
+    <h4>Items</h4>
+    <ul>
+        {% for item in items %}
+            <li>{{ item.product.name }} - {{ item.quantity }}</li>
+        {% endfor %}
+    </ul>
 </div>
-
-<p>{{ wishlist.description }}</p>
-
-<div class="mb-3">
-    {% if user.is_authenticated and user == wishlist.user %}
-        {% if wishlist.days_left >= 0 %}
-            <a href="{% url 'index' %}" class="btn btn-primary">Add Item</a>
-            <button id="shareButton" class="btn btn-success" onclick="copyToClipboard('{{ request.build_absolute_uri|slice:"://"|add:wishlist.shareable_link }}')">Share Wishlist</button>
-        {% else %}
-            <button class="btn btn-secondary" disabled>Add Item</button>
-            <button id="shareButton" class="btn btn-secondary" disabled>Share Wishlist</button>
-        {% endif %}
-        <div class="row">
-            <div class="container">
-                <form method="POST" action="{% url 'update_expiry_date' wishlist.id %}">
-                    {% csrf_token %}
-                    <div class="form-group">
-                        <label for="expiry_date">Expiry Date</label>
-                        <input type="date" class="form-control col-md-2" id="expiry_date" name="expiry_date" value="{{ wishlist.expiry_date|date:'Y-m-d' }}" required>
-
-                    </div>
-                    <div class="form-group">
-
-                        <label for="privacy">Privacy</label>
-                        <select class="form-control col-md-2" id="privacy" name="privacy">
-                            <option value="private" {% if wishlist.privacy == 'Private' %}selected{% endif %}>Private</option>
-                            <option value="public" {% if wishlist.privacy == 'Public' %}selected{% endif %}>Public</option>
-                        </select>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Update Wishlist</button>
-                </form>
-            </div>
-
-        </div>
-    {% endif %}
-</div>
-
-
-<h3>Items in Wishlist</h3>
-<ul>
-    {% for item in wishlist.items.all %}
-    <li>{{ item.product.name }} - Quantity: {{ item.quantity }}</li>
-    {% endfor %}
-</ul>
-
-<h3>Custom Items</h3>
-<ul>
-    {% for custom_item in wishlist.custom_items.all %}
-    <li>{{ custom_item.name }} - Price: GH₵ {{ custom_item.price }}</li>
-    {% endfor %}
-</ul>
-
 {% endblock %}
