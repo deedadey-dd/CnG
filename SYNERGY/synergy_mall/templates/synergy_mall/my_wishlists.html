@@ -1,40 +1,37 @@
-{% extends "base.html" %}
-
-{% block title %}My Wishlists{% endblock %}
+{% extends 'base.html' %}
 
 {% block content %}
+<div class="container">
+    <h2>My Wishlists</h2>
 
-<h2 class="mt-5">My Wishlists</h2>
-
-<div class="row">
-    {% for entry in wishlists_with_colors %}
-    <div class="col-md-4 mb-4">
-        <div class="card" style="background-color: #{{ entry.color }};">
-            <div class="card-body">
-                <h5 class="card-title title-highlight">{{ entry.wishlist.title }}</h5>
-                <p class="card-text">{{ entry.wishlist.description }}</p>
+    {% if wishlists %}
+    <div class="row">
+        {% for wishlist in wishlists %}
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">{{ wishlist.title }}</h5>
+                    <p class="card-text">{{ wishlist.description|default:"No description" }}</p>
+                    <p class="card-text"><strong>Privacy:</strong> {{ wishlist.get_privacy_display }}</p>
+                    <p class="card-text">
+                        <strong>Created:</strong> {{ wishlist.created_at|date:"Y-m-d" }}
+                        {% if wishlist.expiry_date %}
+                        | <strong>Expires:</strong> {{ wishlist.expiry_date|date:"Y-m-d" }}
+                        {% endif %}
+                    </p>
+                    <a href="{% url 'view_wishlist' wishlist.id %}" class="btn btn-primary">View Wishlist</a>
+                    <a href="{% url 'edit_wishlist' wishlist.id %}" class="btn btn-secondary">Edit Wishlist</a>
+                    <a href="{% url 'delete_wishlist' wishlist.id %}" class="btn btn-danger"
+                       onclick="return confirm('Are you sure you want to delete this wishlist?');">
+                       Delete Wishlist
+                    </a>
+                </div>
             </div>
-
-            <!-- Display the first 5 items and their prices -->
-            <ul style="padding-left:0; list-style: none;">
-                {% for item in entry.items_summary %}
-                <li class="d-flex justify-content-between" style="display: flex; justify-content: space-between;">
-                    <span>{{ item.item_name }}</span>
-                    <span>{{ item.item_price }}</span>
-                </li>
-                {% endfor %}
-            </ul>
-            <hr>
-            <!-- Display financial details -->
-            <div class="container">
-                <p style="text-align: right;"><strong>Total Price:</strong> {{ entry.total_price }}</p>
-            </div>
-            <a href="{% url 'view_wishlist' wishlist_id=entry.wishlist.id %}" class="btn btn-primary mt-3">View Wishlist</a>
         </div>
+        {% endfor %}
     </div>
-{% endfor %}
-
-
+    {% else %}
+    <p>You have no wishlists.</p>
+    {% endif %}
 </div>
-
 {% endblock %}
