@@ -9,7 +9,17 @@
     <h4>Items</h4>
     <ul>
         {% for item in items %}
-            <li>{{ item.product.name }} - {{ item.quantity }}</li>
+            <li style="list-style-type:none">
+<!--                <input type="number" id="tentacles" name="tentacles" min="1" default="{{ item.quantity }}"-->
+<!--                />-->
+                {{ item.quantity }} - {{ item.product.name }} - {{ item.product.price }}
+            </li>
+
+        <div class="row mt-4">
+            <div class="card">
+
+            </div>
+        </div>
         {% endfor %}
     </ul>
 </div>

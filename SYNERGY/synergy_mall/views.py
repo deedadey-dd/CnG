@@ -1,6 +1,8 @@
+from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 from django.contrib import messages
 from .models import Product, Wishlist, WishlistItem, Cart, Wishlist
 from django.contrib.auth.models import User
@@ -20,29 +22,83 @@ def index(request):
     page_number = request.GET.get('page', 1)
     products_page = get_paginated_products(request, page_number)
 
+    # Fetch the user's non-expired wishlists (if logged in)
+    wishlists = Wishlist.objects.not_expired().filter(user=request.user) if request.user.is_authenticated else []
+
     context = {
-        'products_page': products_page
+        'products_page': products_page,
+        'wishlists': wishlists  # Pass the user's wishlists to the template
     }
     return render(request, 'synergy_mall/index.html', context)
 
 
+# @login_required
+# def add_to_wishlist(request, product_id):
+#     product = get_object_or_404(Product, id=product_id)
+#     if request.method == 'POST':
+#         wishlist_id = request.POST.get('wishlist_id')
+#         wishlist = get_object_or_404(Wishlist, id=wishlist_id, user=request.user)
+#         WishlistItem.objects.create(wishlist=wishlist, product=product)
+#         messages.success(request, f'{product.name} added to {wishlist.title}')
+#         return redirect('homepage')
+#     else:
+#         # Fetch the user's wishlists
+#         user_wishlists = Wishlist.objects.filter(user=request.user)
+#         context = {
+#             'product': product,
+#             'wishlists': user_wishlists,
+#         }
+#         return render(request, 'synergy_mall/select_wishlist.html', context)
+
+
+@require_POST
 @login_required
-def add_to_wishlist(request, product_id):
-    product = get_object_or_404(Product, id=product_id)
-    if request.method == 'POST':
-        wishlist_id = request.POST.get('wishlist_id')
-        wishlist = get_object_or_404(Wishlist, id=wishlist_id, user=request.user)
-        WishlistItem.objects.create(wishlist=wishlist, product=product)
-        messages.success(request, f'{product.name} added to {wishlist.title}')
-        return redirect('homepage')
-    else:
-        # Fetch the user's wishlists
-        user_wishlists = Wishlist.objects.filter(user=request.user)
-        context = {
-            'product': product,
-            'wishlists': user_wishlists,
+def add_to_wishlist_ajax(request):
+    """
+    Handles the AJAX request to add a product to a selected wishlist.
+    """
+    import json
+    data = json.loads(request.body)
+
+    product_id = data.get('product_id')
+    wishlist_id = data.get('wishlist_id')
+
+    try:
+        product = Product.objects.get(id=product_id)
+
+        # Fetch the user's non-expired wishlists
+        wishlist = Wishlist.objects.not_expired().get(id=wishlist_id, user=request.user)
+
+        # Check if the product is already in the wishlist
+        wishlist_item, created = WishlistItem.objects.get_or_create(
+            wishlist=wishlist,
+            product=product
+        )
+
+        if created:
+            response_data = {
+                'success': True,
+                'product_name': product.name,
+                'wishlist_title': wishlist.title
+            }
+        else:
+            response_data = {
+                'success': False,
+                'message': 'Product is already in the wishlist.'
+            }
+
+    except Product.DoesNotExist:
+        response_data = {
+            'success': False,
+            'message': 'Product not found.'
         }
-        return render(request, 'store/select_wishlist.html', context)
+    except Wishlist.DoesNotExist:
+        response_data = {
+            'success': False,
+            'message': 'Wishlist not found, does not belong to you, or is expired.'
+        }
+
+    return JsonResponse(response_data)
 
 
 @login_required
@@ -122,6 +178,22 @@ def my_wishlists(request):
         'wishlists': wishlists,
     }
     return render(request, 'synergy_mall/my_wishlists.html', context)
+
+
+def all_wishlists(request):
+    # Fetch all public, non-expired wishlists
+    wishlists = Wishlist.objects.public().not_expired()
+
+    # Paginate the wishlists (e.g., 10 per page)
+    paginator = Paginator(wishlists, 10)  # Show 10 wishlists per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'page_obj': page_obj
+    }
+
+    return render(request, 'synergy_mall/all_wishlists.html', context)
 
 
 def search_product(request):

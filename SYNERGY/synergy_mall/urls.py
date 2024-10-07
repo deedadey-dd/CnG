@@ -21,10 +21,8 @@ urlpatterns = [
     # path('wishlist/<int:wishlist_id>/add-custom-item/', views.add_custom_item_to_wishlist,
     #      name='add_custom_item_to_wishlist'),
     path('wishlist/<int:wishlist_id>/', views.view_wishlist, name='view_wishlist'),
-    # path('wishlist/<int:wishlist_id>/update-expiry-date/', views.update_wishlist_expiry, name='update_expiry_date'),
-    # path('gift_item/<int:product_id>', views.cart_detail, name='gift_item'),     # Change this later
-    # path('buy_item/<int:product_id>', views.cart_detail, name='buy_item'),     # Change this later
-    # path('products/', views.search_product, name='search_product'),
-    # path('product/<int:product_id>/', views.product_detail, name='product_detail'),
-    # path('get_receiver_wishlists/', views.get_receiver_wishlists, name='get_receiver_wishlists'),
+    # path('wishlist/add/<int:product_id>/', views.add_to_wishlist, name='add_to_wishlist'),
+    path('wishlist/add_ajax/', views.add_to_wishlist_ajax, name='add_to_wishlist_ajax'),
+    path('wishlists/', views.all_wishlists, name='all_wishlists'),
+
 ]

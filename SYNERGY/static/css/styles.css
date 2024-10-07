@@ -187,3 +187,9 @@ body.theme-light .table tbody tr:hover {
     border: none;
     font-size: 20px;
 }
+
+li.no-bullet {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
