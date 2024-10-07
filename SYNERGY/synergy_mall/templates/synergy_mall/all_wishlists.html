@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block title %}All Wishlists{% endblock %}
+
+{% load static %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="mb-4">All Public Wishlists</h2>
+
+    {% if page_obj %}
+    <div class="row">
+        {% for wishlist in page_obj %}
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">{{ wishlist.title }}</h5>
+                    <i class="card-text">Created by: <b> {{ wishlist.user.first_name }} {{ wishlist.user.surname }}</b></i>
+                    <div>
+                        {% if wishlist.user.profile_picture %}
+                            <img src="{{ wishlist.user.profile_picture.url }}" alt="Profile Picture" class="rounded-square" width="50" height="50">
+                        {% else %}
+                            <img src="{% static 'images/default.jpg' %}" alt="Default Profile Picture" class="rounded-square" width="50" height="50">
+                        {% endif %}
+                    </div>
+                    <p class="card-text">{{ wishlist.description|default:"No description available" }}</p>
+
+                    <!-- First 4 items in the wishlist -->
+
+                        {% for item in wishlist.items.all|slice:":4" %}
+                        <p>{{ item.quantity }} - {{ item.product.name }}</p>
+                        {% endfor %}
+
+                    <!-- If more than 4 items, show how many more -->
+                    {% if wishlist.items.count > 4 %}
+                        <p>and {{ wishlist.items.count|add:"-4" }} more items</p>
+                    {% endif %}
+
+                    <!-- Display total cost of wishlist -->
+                    <p class="card-text">Total Cost: <b>${{ wishlist.total_cost }}</b></p>
+
+                    <!-- Days Left Until Expiry -->
+                    {% if wishlist.days_left %}
+                    <p class="card-text"><b>{{ wishlist.days_left }}</b> day(s) left</p>
+                    {% else %}
+                        <p class="card-text">No expiry date</p>
+                    {% endif %}
+                    <a href="{% url 'view_wishlist' wishlist.id %}" class="btn btn-primary">View Wishlist</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    <nav aria-label="Wishlist pagination">
+        <ul class="pagination">
+            {% if page_obj.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a></li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+            <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+            </li>
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% else %}
+        <p>No wishlists available.</p>
+    {% endif %}
+</div>
+{% endblock %}

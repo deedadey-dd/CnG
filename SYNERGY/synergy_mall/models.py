@@ -95,6 +95,28 @@ class Tag(models.Model):
 
 
 # ## WISHLIST MODELS ##
+class WishlistQuerySet(models.QuerySet):
+    def not_expired(self):
+        """Return wishlists that are either non-expired or have no expiry date."""
+        return self.filter(
+            models.Q(expiry_date__gt=timezone.now()) | models.Q(expiry_date__isnull=True)
+        )
+
+    def public(self):
+        """Return only public wishlists."""
+        return self.filter(privacy='public')
+
+
+class WishlistManager(models.Manager):
+    def get_queryset(self):
+        return WishlistQuerySet(self.model, using=self._db)  # Use the custom QuerySet
+
+    def not_expired(self):
+        return self.get_queryset().not_expired()
+
+    def public(self):
+        return self.get_queryset().public()
+
 
 class Wishlist(models.Model):
     PRIVACY_CHOICES = [
@@ -111,11 +133,26 @@ class Wishlist(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    objects = WishlistManager()
+
     def __str__(self):
         return self.title
 
     def is_expired(self):
         return self.expiry_date and timezone.now() > self.expiry_date
+
+    def total_cost(self):
+        return sum(item.product.price * item.quantity for item in self.items.all())
+
+    def days_left(self):
+        """Return the number of days left until expiry or None if no expiry date."""
+        if self.expiry_date:
+            remaining_time = self.expiry_date - timezone.now()
+            if remaining_time.days > 0:
+                return remaining_time.days
+            else:
+                return 0  # Return 0 if the expiry date has passed
+        return None  # Return None if there is no expiry date
 
 
 class WishlistItem(models.Model):

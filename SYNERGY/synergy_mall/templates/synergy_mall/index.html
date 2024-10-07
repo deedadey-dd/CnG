@@ -15,7 +15,7 @@
         {% for product in products_page %}
         <div class="col-md-4">
             <div class="card mb-4">
-                <img src="{{ product.image.url }}" class="card-img-top" alt="{{ product.name }}">
+                <img src="{{ product.image.url }}" class="card-img-top img-thumbnail" alt="{{ product.name }}" style="height: 200px; object-fit: cover;">
                 <div class="card-body">
                     <h5 class="card-title">{{ product.name }}</h5>
                     <p class="card-text">{{ product.description|truncatewords:15 }}</p>
@@ -25,34 +25,21 @@
 
                     {% if user.is_authenticated %}
                         <!-- Add to Wishlist Button opens a modal to select the wishlist -->
-                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#wishlistModal{{ product.id }}">
-                            Add to Wishlist
-                        </button>
-
-                        <!-- Modal -->
-                        <div class="modal fade" id="wishlistModal{{ product.id }}" tabindex="-1" aria-labelledby="wishlistModalLabel" aria-hidden="true">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title" id="wishlistModalLabel">Add {{ product.name }} to Wishlist</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <form method="post" action="#">
-                                            {% csrf_token %}
-                                            <div class="mb-3">
-                                                <label for="wishlistSelect" class="form-label">Select Wishlist</label>
-                                                <select id="wishlistSelect" name="wishlist_id" class="form-select">
-                                                    {% for wishlist in request.user.wishlist_set.all %}
-                                                    <option value="{{ wishlist.id }}">{{ wishlist.title }}</option>
-                                                    {% endfor %}
-                                                </select>
-                                            </div>
-                                            <button type="submit" class="btn btn-primary">Add</button>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="dropdown">
+                            <button class="btn btn-success dropdown-toggle" type="button" id="wishlistDropdown{{ product.id }}" data-toggle="dropdown" aria-expanded="false">
+                                Add to Wishlist
+                            </button>
+                            <ul class="dropdown-menu" aria-labelledby="wishlistDropdown{{ product.id }}">
+                                {% if wishlists %}
+                                    {% for wishlist in wishlists %}
+                                        <li>
+                                            <a class="dropdown-item" href="#" onclick="addToWishlist({{ product.id }}, {{ wishlist.id }})">{{ wishlist.title }}</a>
+                                        </li>
+                                    {% endfor %}
+                                {% else %}
+                                    <li><span class="dropdown-item">No wishlists available</span></li>
+                                {% endif %}
+                            </ul>
                         </div>
                     {% else %}
                         <!-- Add to Cart for non-authenticated users -->
@@ -83,5 +70,36 @@
         </ul>
     </nav>
 </div>
-{% endblock %}
+</div>
 
+<!-- Include JavaScript for AJAX -->
+<script>
+    function addToWishlist(productId, wishlistId) {
+        const csrfToken = "{{ csrf_token }}";  // Use the Django-provided CSRF token
+
+        // Make an AJAX request to add the product to the wishlist
+        fetch("{% url 'add_to_wishlist_ajax' %}", {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": csrfToken,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                product_id: productId,
+                wishlist_id: wishlistId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`${data.product_name} added to ${data.wishlist_title}`);
+            } else {
+                alert("Error: " + data.message);
+            }
+        })
+        .catch(error => {
+            console.error("Error adding to wishlist:", error);
+        });
+    }
+</script>
+{% endblock %}
