@@ -1,37 +1,84 @@
 {% extends 'base.html' %}
 
+{% load static %}
+
 {% block content %}
 <div class="container">
     <h2>My Wishlists</h2>
 
-    {% if wishlists %}
+    {% if page_obj %}
     <div class="row">
-        {% for wishlist in wishlists %}
+        {% for wishlist in page_obj %}
         <div class="col-md-4">
             <div class="card mb-4">
                 <div class="card-body">
                     <h5 class="card-title">{{ wishlist.title }}</h5>
-                    <p class="card-text">{{ wishlist.description|default:"No description" }}</p>
-                    <p class="card-text"><strong>Privacy:</strong> {{ wishlist.get_privacy_display }}</p>
-                    <p class="card-text">
-                        <strong>Created:</strong> {{ wishlist.created_at|date:"Y-m-d" }}
-                        {% if wishlist.expiry_date %}
-                        | <strong>Expires:</strong> {{ wishlist.expiry_date|date:"Y-m-d" }}
+                    <i class="card-text">Created by: <b> {{ wishlist.user.first_name }} {{ wishlist.user.surname }}</b></i>
+                    <div>
+                        {% if wishlist.user.profile_picture %}
+                            <img src="{{ wishlist.user.profile_picture.url }}" alt="Profile Picture" class="rounded-square" width="50" height="50">
+                        {% else %}
+                            <img src="{% static 'images/default.jpg' %}" alt="Default Profile Picture" class="rounded-square" width="50" height="50">
                         {% endif %}
-                    </p>
-                    <a href="{% url 'view_wishlist' wishlist.id %}" class="btn btn-primary">View Wishlist</a>
-                    <a href="{% url 'edit_wishlist' wishlist.id %}" class="btn btn-secondary">Edit Wishlist</a>
-                    <a href="{% url 'delete_wishlist' wishlist.id %}" class="btn btn-danger"
-                       onclick="return confirm('Are you sure you want to delete this wishlist?');">
-                       Delete Wishlist
-                    </a>
+                    </div>
+                    <p class="card-text">{{ wishlist.description|default:"No description available" }}</p>
+
+                    <!-- First 4 items in the wishlist -->
+
+                        {% for item in wishlist.items.all|slice:":4" %}
+                        <p>{{ item.quantity }} - {{ item.product.name }}</p>
+                        {% endfor %}
+
+                    <!-- If more than 4 items, show how many more -->
+                    {% if wishlist.items.count > 4 %}
+                        <p>and {{ wishlist.items.count|add:"-4" }} more items</p>
+                    {% endif %}
+
+                    <!-- Display total cost of wishlist -->
+                    <p class="card-text">Total Cost: <b>${{ wishlist.total_cost }}</b></p>
+
+                    <!-- Days Left Until Expiry -->
+                    {% if wishlist.days_left %}
+                    <p class="card-text"><b>{{ wishlist.days_left }}</b> day(s) left</p>
+                    {% else %}
+                        <p class="card-text">No expiry date</p>
+                    {% endif %}
+                    <div class="d-flex">
+                        <a href="{% url 'view_wishlist' wishlist.id %}" class="btn btn-primary">View Wishlist</a>
+                        <a href="{% url 'edit_wishlist' wishlist.id %}" class="btn btn-secondary ml-2">Edit Wishlist</a>
+                        <a href="{% url 'delete_wishlist' wishlist.id %}" class="btn btn-danger ml-2"
+                           onclick="return confirm('Are you sure you want to delete this wishlist?');">
+                           Delete Wishlist
+                        </a>
+                    </div>
+
                 </div>
             </div>
         </div>
         {% endfor %}
     </div>
+
+    <!-- Pagination -->
+    <nav aria-label="Wishlist pagination">
+        <ul class="pagination">
+            {% if page_obj.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a></li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+            <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+            </li>
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a></li>
+            {% endif %}
+        </ul>
+    </nav>
     {% else %}
-    <p>You have no wishlists.</p>
+        <p>No wishlists available.</p>
     {% endif %}
 </div>
+
 {% endblock %}

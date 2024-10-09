@@ -1,13 +1,16 @@
+import json
+from decimal import Decimal
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.contrib import messages
-from .models import Product, Wishlist, WishlistItem, Cart, Wishlist
+from .models import Product, Wishlist, WishlistItem, Cart, Wishlist, Contribution
 from django.contrib.auth.models import User
 from .wishlist import WishlistService
 from django.db.models import Q, Count
+from django.utils import timezone
 
 
 # Single Responsibility Principle: Separate logic for paginated product fetching.
@@ -30,25 +33,6 @@ def index(request):
         'wishlists': wishlists  # Pass the user's wishlists to the template
     }
     return render(request, 'synergy_mall/index.html', context)
-
-
-# @login_required
-# def add_to_wishlist(request, product_id):
-#     product = get_object_or_404(Product, id=product_id)
-#     if request.method == 'POST':
-#         wishlist_id = request.POST.get('wishlist_id')
-#         wishlist = get_object_or_404(Wishlist, id=wishlist_id, user=request.user)
-#         WishlistItem.objects.create(wishlist=wishlist, product=product)
-#         messages.success(request, f'{product.name} added to {wishlist.title}')
-#         return redirect('homepage')
-#     else:
-#         # Fetch the user's wishlists
-#         user_wishlists = Wishlist.objects.filter(user=request.user)
-#         context = {
-#             'product': product,
-#             'wishlists': user_wishlists,
-#         }
-#         return render(request, 'synergy_mall/select_wishlist.html', context)
 
 
 @require_POST
@@ -161,9 +145,26 @@ def view_wishlist(request, wishlist_id):
 
     context = {
         'wishlist': wishlist,
-        'items': wishlist.items.all()  # Prefetch related wishlist items
+        'items': wishlist.ordered_items()  # Load items in the correct order
     }
     return render(request, 'synergy_mall/view_wishlist.html', context)
+
+
+@login_required
+def update_wishlist_order(request):
+    """Update the order of the wishlist items."""
+    if request.method == "POST":
+        data = json.loads(request.body)
+        wishlist_id = data.get('wishlist_id')
+        ordered_item_ids = data.get('ordered_item_ids')
+
+        wishlist = Wishlist.objects.get(id=wishlist_id, user=request.user)
+        for index, item_id in enumerate(ordered_item_ids):
+            WishlistItem.objects.filter(id=item_id, wishlist=wishlist).update(ordering=index)
+
+        return JsonResponse({'success': True})
+
+    return JsonResponse({'success': False, 'error': 'Invalid request'})
 
 
 @login_required
@@ -174,9 +175,15 @@ def my_wishlists(request):
     wishlist_service = WishlistService(request.user)
     wishlists = wishlist_service.get_user_wishlists()
 
+    # Paginate the wishlists (e.g., 10 per page)
+    paginator = Paginator(wishlists, 9)  # Show 9 wishlists per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     context = {
-        'wishlists': wishlists,
+        'page_obj': page_obj
     }
+
     return render(request, 'synergy_mall/my_wishlists.html', context)
 
 
@@ -185,7 +192,7 @@ def all_wishlists(request):
     wishlists = Wishlist.objects.public().not_expired()
 
     # Paginate the wishlists (e.g., 10 per page)
-    paginator = Paginator(wishlists, 10)  # Show 10 wishlists per page
+    paginator = Paginator(wishlists, 9)  # Show 9 wishlists per page
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
@@ -194,6 +201,125 @@ def all_wishlists(request):
     }
 
     return render(request, 'synergy_mall/all_wishlists.html', context)
+
+
+def update_wishlist_item(request, wishlist_id, item_id):
+    wishlist = get_object_or_404(Wishlist, id=wishlist_id, user=request.user)
+    item = get_object_or_404(WishlistItem, id=item_id, wishlist=wishlist)
+
+    if request.method == "POST":
+        quantity = request.POST.get('quantity')
+        if quantity and int(quantity) > 0:
+            item.quantity = int(quantity)
+            item.save()
+    return redirect('view_wishlist', wishlist_id=wishlist.id)
+
+
+def remove_wishlist_item(request, wishlist_id, item_id):
+    wishlist = get_object_or_404(Wishlist, id=wishlist_id, user=request.user)
+    item = get_object_or_404(WishlistItem, id=item_id, wishlist=wishlist)
+
+    # Remove the item from the wishlist
+    item.delete()
+    return redirect('view_wishlist', wishlist_id=wishlist.id)
+
+
+# ########## CONTRIBUTION VIEWS ##########
+
+
+def contribute_to_wishlist(request, wishlist_id):
+    wishlist = get_object_or_404(Wishlist, id=wishlist_id)
+    amount = Decimal(request.POST.get('amount'))
+    contributor_name = request.POST.get('contributor_name')
+    contact_info = request.POST.get('contact_info')
+    message = request.POST.get('message', '')  # Optional message
+    item_id = request.POST.get('item_id')  # This will be null for general contributions
+
+    if item_id:
+        # Specific item contribution
+        item = get_object_or_404(WishlistItem, id=item_id, wishlist=wishlist)
+        handle_item_contribution(item, amount, contributor_name, contact_info, message)
+    else:
+        # General contribution, apply to the first item in the wishlist that needs funds
+        handle_general_contribution(wishlist, amount, contributor_name, contact_info, message)
+
+    return redirect('view_wishlist', wishlist_id=wishlist.id)
+
+
+def handle_item_contribution(item, amount, contributor_name, contact_info, message):
+    """Handle specific item contribution and handle surplus if any."""
+    remaining = item.amount_remaining()
+
+    if amount <= remaining:
+        item.amount_paid += amount
+        item.save()
+    else:
+        item.amount_paid += remaining
+        item.save()
+        surplus = amount - remaining
+        distribute_surplus(item.wishlist, surplus)
+
+    # Log the contribution with additional details
+    Contribution.objects.create(
+        wishlist_item=item,
+        wishlist=item.wishlist,
+        contributor_name=contributor_name,
+        contact_info=contact_info,
+        message=message,
+        amount=amount,
+        date=timezone.now()
+    )
+
+
+def handle_general_contribution(wishlist, amount, contributor_name, contact_info, message):
+    """Handle general contributions and apply to items in the preferred order."""
+    items = wishlist.ordered_items()
+    for item in items:
+        remaining = item.amount_remaining()
+        if amount <= remaining:
+            item.amount_paid += amount
+            item.save()
+            break
+        else:
+            item.amount_paid += remaining
+            item.save()
+            amount -= remaining
+
+    # If there's any surplus after all items, add it to user's cash_on_hand
+    if amount > 0:
+        wishlist.user.cash += amount
+        wishlist.user.save()
+
+    # Log the contribution with additional details
+    Contribution.objects.create(
+        wishlist=wishlist,
+        contributor_name=contributor_name,
+        contact_info=contact_info,
+        message=message,
+        amount=amount,
+        date=timezone.now()
+    )
+
+
+def distribute_surplus(wishlist, surplus):
+    """Distribute surplus funds to other items in the wishlist."""
+    items = wishlist.ordered_items()
+    for item in items:
+        if item.amount_remaining() > 0:
+            remaining = item.amount_remaining()
+            if surplus <= remaining:
+                item.amount_paid += surplus
+                item.save()
+                return
+            else:
+                item.amount_paid += remaining
+                item.save()
+                surplus -= remaining
+
+    # If any surplus is left after all items are funded, add to user's cash_on_hand
+    if surplus > 0:
+        wishlist.user.cash += surplus
+        wishlist.user.save()
 
 
 def search_product(request):

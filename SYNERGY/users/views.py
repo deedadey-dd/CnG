@@ -78,7 +78,7 @@ def custom_login(request):
                 if user.role == 'vendor':
                     if not hasattr(user, 'vendor_profile') or user.vendor_profile.location == '':
                         return redirect('vendor_detail')
-                    return redirect('add_product')  # Redirect vendors to the vendor dashboard
+                    return redirect('index')  # Redirect vendors to the vendor dashboard
                 else:
                     return redirect('index')  # Redirect regular users to the homepage
             else:

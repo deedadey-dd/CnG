@@ -17,12 +17,15 @@ urlpatterns = [
     path('wishlist/<int:wishlist_id>/edit/', views.edit_wishlist, name='edit_wishlist'),
     path('wishlist/<int:wishlist_id>/delete/', views.delete_wishlist, name='delete_wishlist'),
     path('wishlist/my_wishlists/', views.my_wishlists, name='my_wishlists'),
-    # path('wishlist/<int:wishlist_id>/add-item/', views.add_product_to_wishlist, name='add_product_to_wishlist'),
-    # path('wishlist/<int:wishlist_id>/add-custom-item/', views.add_custom_item_to_wishlist,
-    #      name='add_custom_item_to_wishlist'),
+    path('wishlist/<int:wishlist_id>/item/<int:item_id>/update/', views.update_wishlist_item,
+         name='update_wishlist_item'),
+    path('wishlist/<int:wishlist_id>/item/<int:item_id>/remove/', views.remove_wishlist_item,
+         name='remove_wishlist_item'),
     path('wishlist/<int:wishlist_id>/', views.view_wishlist, name='view_wishlist'),
     # path('wishlist/add/<int:product_id>/', views.add_to_wishlist, name='add_to_wishlist'),
     path('wishlist/add_ajax/', views.add_to_wishlist_ajax, name='add_to_wishlist_ajax'),
+    path('wishlist/update_order/', views.update_wishlist_order, name='update_wishlist_order'),
     path('wishlists/', views.all_wishlists, name='all_wishlists'),
+    path('wishlist/<int:wishlist_id>/contribute/', views.contribute_to_wishlist, name='contribute_to_wishlist'),
 
 ]

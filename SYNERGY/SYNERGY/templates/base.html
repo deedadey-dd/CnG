@@ -55,7 +55,7 @@
                             <a class="nav-link" href="{% url 'my_wishlists' %}">My Wishlists</a>
                         </li>
                         <li class="nav-item">
-                            <span class="nav-link">Cash on Hand: GH₵ {{ user.cash_on_hand|floatformat:2 }}</span>
+                            <span class="nav-link">Cash: GH₵ {{ user.cash|floatformat:2 }}</span>
                         </li>
                     {% endif %}
                     <li class="nav-item dropdown">

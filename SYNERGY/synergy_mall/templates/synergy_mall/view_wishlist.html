@@ -6,21 +6,135 @@
     <p>{{ wishlist.description }}</p>
     <p>Privacy: {{ wishlist.get_privacy_display }}</p>
 
-    <h4>Items</h4>
-    <ul>
-        {% for item in items %}
-            <li style="list-style-type:none">
-<!--                <input type="number" id="tentacles" name="tentacles" min="1" default="{{ item.quantity }}"-->
-<!--                />-->
-                {{ item.quantity }} - {{ item.product.name }} - {{ item.product.price }}
-            </li>
-
-        <div class="row mt-4">
-            <div class="card">
-
-            </div>
+    <!-- CONTRIBUTIONS -->
+    <form method="POST" action="{% url 'contribute_to_wishlist' wishlist.id %}">
+        {% csrf_token %}
+        <!-- Contributor's name -->
+        <div class="form-group">
+            <label for="contributor_name">Your Name</label>
+            <input type="text" id="contributor_name" name="contributor_name" required class="form-control">
         </div>
+
+        <!-- Contributor's contact info (phone or email) -->
+        <div class="form-group">
+            <label for="contact_info">Phone Number or Email</label>
+            <input type="text" id="contact_info" name="contact_info" required class="form-control">
+        </div>
+
+        <!-- Contribution message -->
+        <div class="form-group">
+            <label for="message">Message (200 characters or less)</label>
+            <textarea id="message" name="message" maxlength="200" class="form-control"></textarea>
+        </div>
+
+        <!-- Contribution Amount -->
+        <div class="form-group">
+            <label for="amount">Contribution Amount ($)</label>
+            <input type="number" step="0.01" id="amount" name="amount" required class="form-control">
+        </div>
+
+        <!-- Contribute to a specific item or general -->
+        <div class="form-group">
+            <label for="item_id">Contribute to</label>
+            <select id="item_id" name="item_id" class="form-control">
+                <option value="">General Contribution</option>
+                {% for item in wishlist.ordered_items %}
+                <option value="{{ item.id }}">{{ item.product.name }} - ${{ item.product.price }} ({{ item.amount_remaining }} remaining)</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-success">Contribute</button>
+    </form>
+
+    <!-- Draggable Items for Reordering -->
+    <h4>Items</h4>
+    <ul id="sortable-items" class="list-group">
+        {% for item in items %}
+        <li class="list-group-item" data-item-id="{{ item.id }}">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">{{ item.product.name }}</h5>
+                    <p class="card-text">Price: ${{ item.product.price }}</p>
+
+                    <!-- Quantity Input Field -->
+                    <form method="post" action="{% url 'update_wishlist_item' wishlist.id item.id %}">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label for="quantity-{{ item.id }}">Quantity:</label>
+                            <input type="number" id="quantity-{{ item.id }}" name="quantity" value="{{ item.quantity }}" min="1" class="form-control" style="width: 80px;">
+                        </div>
+
+                        <!-- Update and Remove Buttons -->
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-primary">Update Quantity</button>
+                            <a href="{% url 'remove_wishlist_item' wishlist.id item.id %}" class="btn btn-danger" onclick="return confirm('Are you sure you want to remove this item?');">Remove Item</a>
+                        </div>
+                    </form>
+
+                    <!-- Contribution Summary -->
+                    <h4>Contributions</h4>
+                    <div class="row">
+                        {% for contribution in item.contribution_set.all %}
+                            <div class="contribution">
+                                <p><strong>{{ contribution.contributor_name }}</strong> contributed ${{ contribution.amount }}</p>
+                                <p>{{ contribution.message }}</p>
+                                <p>Contact: {{ contribution.contact_info }}</p>
+                                <p>Date: {{ contribution.date|date:"Y-m-d H:i" }}</p>
+                            </div>
+                        {% empty %}
+                            <p>No contributions yet.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </li>
         {% endfor %}
     </ul>
+
+    <!-- Button to Save Order -->
+    <button class="btn btn-primary mt-3" onclick="saveOrder()">Save Order</button>
+
 </div>
+
+<!-- Include the SortableJS script -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.14.0/Sortable.min.js"></script>
+
+<script>
+    // Initialize SortableJS
+    const sortableList = document.getElementById('sortable-items');
+    const sortable = new Sortable(sortableList, {
+        animation: 150,
+    });
+
+    // Function to save the new order
+    function saveOrder() {
+        const orderedItemIds = Array.from(sortableList.children).map(function (item) {
+            return item.getAttribute('data-item-id');
+        });
+
+        // Send the new order to the server using AJAX
+        fetch("{% url 'update_wishlist_order' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            body: JSON.stringify({
+                'wishlist_id': {{ wishlist.id }},
+                'ordered_item_ids': orderedItemIds
+            })
+        }).then(response => response.json()).then(data => {
+            if (data.success) {
+                alert('Order updated successfully!');
+            } else {
+                alert('Failed to update order.');
+            }
+        }).catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while updating the order.');
+        });
+    }
+</script>
+
 {% endblock %}

@@ -20,13 +20,16 @@
                     <h5 class="card-title">{{ product.name }}</h5>
                     <p class="card-text">{{ product.description|truncatewords:15 }}</p>
                     <p class="card-text">Price: {{ product.price }}</p>
-                    <a href="#" class="btn btn-primary">Buy Item</a>
-                    <a href="#" class="btn btn-secondary">Gift Item</a>
-
+                    <div class="d-flex">
+                        <a href="#" class="btn btn-primary">Buy Item</a>
+                        <a href="#" class="btn btn-secondary ml-2">Gift Item</a>
+                        <!-- Add to Cart for non-authenticated users -->
+                        <a href="#" class="btn btn-warning ml-2">Add to Cart</a>
+                    </div>
                     {% if user.is_authenticated %}
                         <!-- Add to Wishlist Button opens a modal to select the wishlist -->
-                        <div class="dropdown">
-                            <button class="btn btn-success dropdown-toggle" type="button" id="wishlistDropdown{{ product.id }}" data-toggle="dropdown" aria-expanded="false">
+                        <div class="dropdown mt-2">
+                            <button class="btn btn-success dropdown-toggle btn-block" type="button" id="wishlistDropdown{{ product.id }}" data-toggle="dropdown" aria-expanded="false">
                                 Add to Wishlist
                             </button>
                             <ul class="dropdown-menu" aria-labelledby="wishlistDropdown{{ product.id }}">
@@ -41,10 +44,8 @@
                                 {% endif %}
                             </ul>
                         </div>
-                    {% else %}
-                        <!-- Add to Cart for non-authenticated users -->
-                        <a href="#" class="btn btn-warning">Add to Cart</a>
                     {% endif %}
+
                 </div>
             </div>
         </div>

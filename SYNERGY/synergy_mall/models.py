@@ -154,6 +154,10 @@ class Wishlist(models.Model):
                 return 0  # Return 0 if the expiry date has passed
         return None  # Return None if there is no expiry date
 
+    def ordered_items(self):
+        """Return the wishlist items ordered by the user's preference (ordering field)."""
+        return self.items.all().order_by('ordering')
+
 
 class WishlistItem(models.Model):
     wishlist = models.ForeignKey(Wishlist, on_delete=models.CASCADE, related_name="items")
@@ -161,9 +165,19 @@ class WishlistItem(models.Model):
     quantity = models.PositiveIntegerField(default=1)
     status = models.CharField(max_length=50, choices=[('pending', 'Pending'), ('partial', 'Partially Filled'), ('filled', 'Filled')], default='Pending')
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    ordering = models.PositiveIntegerField(default=0)  # Field to order items
 
     def __str__(self):
         return f"{self.product.name} in {self.wishlist.title}"
+
+    def amount_remaining(self):
+        """Return the remaining amount needed for this item."""
+        total_price = self.product.price * self.quantity
+        return max(total_price - self.amount_paid, 0)
+
+    def is_fully_paid(self):
+        """Return True if the item has been fully contributed for."""
+        return self.amount_remaining() == 0
 
 
 class CustomItem(models.Model):
@@ -175,3 +189,18 @@ class CustomItem(models.Model):
 
     def __str__(self):
         return f"Custom Item: {self.name} in {self.wishlist.title}"
+
+
+# ###### CONTRIBUTIONS #################
+
+class Contribution(models.Model):
+    wishlist_item = models.ForeignKey(WishlistItem, on_delete=models.CASCADE, null=True, blank=True)  # Specific item
+    wishlist = models.ForeignKey(Wishlist, on_delete=models.CASCADE)  # General wishlist contribution
+    contributor_name = models.CharField(max_length=255)
+    contact_info = models.CharField(max_length=255)  # Can hold either phone or email
+    message = models.CharField(max_length=200, blank=True, null=True)  # Short message
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    date = models.DateTimeField(auto_now_add=True)  # Timestamp when the contribution is made
+
+    def __str__(self):
+        return f"Contribution of ${self.amount} by {self.contributor_name} to {self.wishlist.title}"
