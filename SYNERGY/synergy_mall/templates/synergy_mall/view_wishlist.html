@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block content %}
 <div class="container">
@@ -6,21 +7,236 @@
     <p>{{ wishlist.description }}</p>
     <p>Privacy: {{ wishlist.get_privacy_display }}</p>
 
-    <h4>Items</h4>
-    <ul>
-        {% for item in items %}
-            <li style="list-style-type:none">
-<!--                <input type="number" id="tentacles" name="tentacles" min="1" default="{{ item.quantity }}"-->
-<!--                />-->
-                {{ item.quantity }} - {{ item.product.name }} - {{ item.product.price }}
-            </li>
+    <!-- Contribute Button to trigger the modal -->
+    <button type="button" class="btn btn-success" data-toggle="modal" data-target="#contributeModal">
+        Contribute
+    </button>
 
-        <div class="row mt-4">
-            <div class="card">
+    <!-- Contribution Form Modal -->
+    <div class="modal fade" id="contributeModal" tabindex="-1" role="dialog" aria-labelledby="contributeModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="contributeModalLabel">Contribute to Wishlist</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <!-- CONTRIBUTIONS FORM -->
+                    <form method="POST" action="{% url 'contribute_to_wishlist' wishlist.id %}">
+                        {% csrf_token %}
+                        <!-- Contributor's Name -->
+                        <div class="form-group">
+                            <label for="contributor_name">Your Name</label>
+                            <input type="text" id="contributor_name" name="contributor_name" required class="form-control"
+                            value="{% if user.is_authenticated %}{{ user_info.first_name |default:'' }} {{ user_info.other_names|default:''}} {{ user_info.surname|default:'' }} {% endif %}">
+                        </div>
 
+                        <!-- Contributor's Contact Info -->
+                        <div class="form-group">
+                            <label for="contact_info">Phone Number or Email</label>
+                            <input type="text" id="contact_info" name="contact_info" required class="form-control"
+                            value="{% if user.is_authenticated %}{{ user_info.phone_number|default:'' }}{% endif %}">
+                        </div>
+
+                        <!-- Contribution Message -->
+                        <div class="form-group">
+                            <label for="message">Message (200 characters or less)</label>
+                            <textarea id="message" name="message" maxlength="200" class="form-control"></textarea>
+                        </div>
+
+                        <!-- Contribution Amount -->
+                        <div class="form-group">
+                            <label for="amount">Contribution Amount ($)</label>
+                            <input type="number" step="0.01" id="amount" name="amount" required class="form-control">
+                        </div>
+
+                        <!-- Contribute to a Specific Item or General -->
+                        <div class="form-group">
+                            <label for="item_id">Contribute to</label>
+                            <select id="item_id" name="item_id" class="form-control">
+                                <option value="">General Contribution</option>
+                                {% for item in wishlist.ordered_items %}
+                                <option value="{{ item.id }}">{{ item.product.name }} - ${{ item.product.price }} ({{ item.amount_remaining }} remaining)</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <button type="submit" class="btn btn-success">Contribute</button>
+                    </form>
+                </div>
             </div>
         </div>
+    </div>
+
+    <!-- Draggable Items for Reordering -->
+    <h4>Items</h4>
+    <ul id="sortable-items" class="list-group">
+        {% for item in items %}
+        <li class="list-group-item" data-item-id="{{ item.id }}">
+            <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">{{ item.product.name }}</h5>
+                    <!-- Carousel for Product Images -->
+                    <div id="productCarousel{{ product.id }}" class="carousel slide card-top-image img-thumbnail" data-ride="carousel">
+                        <div class="carousel-inner">
+                            {% for image in item.product.images.all %}
+                            <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                <img src="{{ image.image.url }}" class="d-block w-100 product-image" alt="{{ item.product.name }}">
+                            </div>
+                            {% empty %}
+                            <div class="carousel-item active">
+                                <img src="{% static 'images/no-image-available.png' %}" class="d-block w-100 product-image" alt="No Image Available">
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <a class="carousel-control-prev" href="#productCarousel{{ item.product.id }}" role="button" data-slide="prev">
+                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                            <span class="sr-only">Previous</span>
+                        </a>
+                        <a class="carousel-control-next" href="#productCarousel{{ product.id }}" role="button" data-slide="next">
+                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                            <span class="sr-only">Next</span>
+                        </a>
+                    </div>
+
+                    <p class="card-text">{% if wishlist.total_contributions == 0 %}Initial Price: {{ item.total_price }}
+                        {% else %} Initial Price: <strike>${{ item.total_price }}</strike> Remaining: <strong> $ {{ item.amount_remaining }}</strong>{% endif %}
+                    </p>
+
+                    <div class="row">
+                        <form method="post" action="{% url 'update_wishlist_item' wishlist.id item.id %}">
+                            {% csrf_token %}
+
+                            <!-- Quantity Label and Input (aligned on the same line) -->
+                            <div class="d-flex align-items-center">
+                                <!-- Label for Quantity -->
+                                <div class="mr-2">
+                                    <label for="quantity-{{ item.id }}" class="mb-0">Quantity:</label>
+                                </div>
+
+                                <!-- Quantity Input (for owner) or Quantity Display (for non-owner) -->
+                                <div>
+                                    {% if user == wishlist.user %}
+                                        <input type="number" id="quantity-{{ item.id }}" name="quantity" value="{{ item.quantity }}" min="1" class="form-control" style="width: 80px;">
+                                    {% else %}
+                                        <span class="form-control-plaintext">{{ item.quantity }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Update and Remove Buttons (only visible to the wishlist owner) -->
+                            {% if user == wishlist.user %}
+                                <div class="mt-2">
+                                    <button type="submit" class="btn btn-primary mr-2">Update Quantity</button>
+                                    <a href="{% url 'remove_wishlist_item' wishlist.id item.id %}" class="btn btn-danger" onclick="return confirm('Are you sure you want to remove this item?');">Remove Item</a>
+                                </div>
+                            {% endif %}
+                        </form>
+                    </div>
+
+
+                    <!-- Contribution Summary -->
+                    <h4>Contributions</h4>
+                    <div class="row">
+                        {% for contribution in item.contribution_set.all %}
+                            <div class="contribution mr-4">
+                                <p class="mb-0 mt-0"><strong>{{ contribution.contributor_name }}</strong> says... </p>
+                                <p class="mb-0 mt-0"><i>{{ contribution.message }}</i></p>
+                                <p class="mb-0 mt-0"> ...with <strong> ${{ contribution.amount }}</strong></p>
+                                <p class="mb-1 mt-0"><i><small>{{ contribution.date|date:"Ymd | H:i" }}</small></i></p>
+                                {% if user == wishlist.user %}
+                                <p class="mb-0 mt-0">Contact: {{ contribution.contact_info }}</p>
+                                {% endif %}
+                            </div>
+                        <hr>
+
+                        {% empty %}
+                            <p>No contributions yet.</p>
+                        {% endfor %}
+                    </div>
+                    {% if user != wishlist.user %}
+                    <!-- Contribute Button to trigger the modal -->
+                    <button type="button" class="btn btn-success" data-toggle="modal" data-target="#contributeModal">
+                        Contribute
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            </div>
+        </li>
         {% endfor %}
     </ul>
+    {% if user == wishlist.user %}
+    <!-- Button to Save Order -->
+    <button class="btn btn-primary mt-3" onclick="saveOrder()">Save Order</button>
+    {% else %}
+        <!-- Contribute Button to trigger the modal -->
+        <button type="button" class="btn btn-success" data-toggle="modal" data-target="#contributeModal">
+            Contribute
+        </button>
+    {% endif %}
 </div>
+
+    <h4>General Contributions</h4>
+    <div class="row">
+        {% if general_contributions %}
+            <ul class="list-group">
+                {% for contribution in general_contributions %}
+                <li class="list-group-item">
+                    <strong>{{ contribution.contributor_name }}</strong> contributed <strong>${{ contribution.amount }}</strong>
+                    <p class="mb-0">{{ contribution.message }}</p>
+                    <p class="mb-0">Contact: {{ contribution.contact_info }}</p>
+                    <p><small><i>{{ contribution.date|date:"Y-m-d H:i" }}</i></small></p>
+                </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No general contributions yet.</p>
+        {% endif %}
+    </div>
+
+<!-- Include the SortableJS script -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.14.0/Sortable.min.js"></script>
+
+<script>
+    // Initialize SortableJS
+    const sortableList = document.getElementById('sortable-items');
+    const sortable = new Sortable(sortableList, {
+        animation: 150,
+    });
+
+    // Function to save the new order
+    function saveOrder() {
+        const orderedItemIds = Array.from(sortableList.children).map(function (item) {
+            return item.getAttribute('data-item-id');
+        });
+
+        // Send the new order to the server using AJAX
+        fetch("{% url 'update_wishlist_order' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            body: JSON.stringify({
+                'wishlist_id': {{ wishlist.id }},
+                'ordered_item_ids': orderedItemIds
+            })
+        }).then(response => response.json()).then(data => {
+            if (data.success) {
+                alert('Order updated successfully!');
+            } else {
+                alert('Failed to update order.');
+            }
+        }).catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while updating the order.');
+        });
+    }
+</script>
+
 {% endblock %}
