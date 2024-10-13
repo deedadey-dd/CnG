@@ -2,26 +2,6 @@ from django import forms
 from .models import Product, Category, Wishlist, WishlistItem, CustomItem, ProductImage
 
 
-class ProductForm(forms.ModelForm):
-    class Meta:
-        model = Product
-        fields = ['name', 'description', 'price', 'sale_price', 'category', 'sku', 'image', 'condition', 'color']
-
-        widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-control'}),
-            'description': forms.Textarea(attrs={'class': 'form-control'}),
-            'price': forms.NumberInput(attrs={'class': 'form-control'}),
-            'sale_price': forms.NumberInput(attrs={'class': 'form-control'}),
-            'category': forms.Select(attrs={'class': 'form-control'}),
-            'sku': forms.TextInput(attrs={'class': 'form-control'}),
-            'image': forms.ClearableFileInput(attrs={'class': 'form-control'}),
-            'condition': forms.Select(choices=[('new', 'New'), ('used', 'Used'), ('refurbished', 'Refurbished')], attrs={'class': 'form-control'}),
-            'color': forms.TextInput(attrs={'class': 'form-control'}),
-        }
-
-
-# These funcctions allow for multiple files to be uploaded.
-
 class MultipleFileInput(forms.ClearableFileInput):
     allow_multiple_selected = True
 
@@ -51,6 +31,28 @@ class ProductImageForm(forms.ModelForm):
         }
 
 
+class ProductForm(forms.ModelForm):
+    images = MultipleFileField()  # Add this to allow multiple file uploads
+
+    class Meta:
+        model = Product
+        fields = ['name', 'description', 'price', 'sale_price', 'category', 'sku', 'condition', 'color']
+
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control'}),
+            'price': forms.NumberInput(attrs={'class': 'form-control'}),
+            'sale_price': forms.NumberInput(attrs={'class': 'form-control'}),
+            'category': forms.Select(attrs={'class': 'form-control'}),
+            'sku': forms.TextInput(attrs={'class': 'form-control'}),
+            'condition': forms.Select(choices=[('new', 'New'), ('used', 'Used'), ('refurbished', 'Refurbished')], attrs={'class': 'form-control'}),
+            'color': forms.TextInput(attrs={'class': 'form-control'}),
+        }
+
+
+# These funcctions allow for multiple files to be uploaded.
+
+
 class CategoryForm(forms.ModelForm):
     class Meta:
         model = Category
@@ -58,6 +60,7 @@ class CategoryForm(forms.ModelForm):
 
 
 class InventoryProductForm(forms.ModelForm):
+    images = MultipleFileField()
     # tags = forms.CharField(required=False, widget=forms.TextInput(
     # attrs={'placeholder': 'Add tags separated by commas', 'class': 'form-control'})
     # )
@@ -66,7 +69,7 @@ class InventoryProductForm(forms.ModelForm):
         model = Product
         exclude = ['tags']  # Exclude tags field from being rendered automatically
         # Exclude 'featured' and 'available' from the form
-        fields = ['name', 'stock', 'description', 'price', 'sale_price', 'category', 'sku', 'image', 'condition',
+        fields = ['name', 'stock', 'description', 'price', 'sale_price', 'category', 'sku', 'condition',
                   'color', 'tags',
                   ]
 

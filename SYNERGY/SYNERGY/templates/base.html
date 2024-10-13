@@ -9,17 +9,17 @@
 
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     {% load static %}
-    <link href="{% static 'css/styles.css' %}" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
     <!-- Include Font Awesome for Cart Icon -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
 
 
 </head>
 <body class="theme-light">
-    <nav class="navbar navbar-expand-lg">
+    <nav class="navbar navbar-expand-lg sticky-top">
         <a class="navbar-brand" href="{% url 'index' %}">Synergy Mall</a>
-        <form class="d-flex" action="{% url 'search_product' %}" method="GET">
-          <input class="form-control me-2" type="search" name="q" placeholder="Search products" aria-label="Search" required>
+        <form class="d-flex mx-auto" action="{% url 'search_product' %}" method="GET">
+          <input class="form-control me-2" type="search" name="q" placeholder="Search the Store" aria-label="Search" required>
           <button class="btn btn-outline-success" type="submit">Search</button>
         </form>
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
@@ -202,8 +202,34 @@
             } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
                 document.body.className = 'theme-dark';
             }
-            updateNavbarTheme();
+
+            // Update modal themes on load
+            updateModalTheme();
         });
+
+        // Function to update modal theme based on body theme
+        function updateModalTheme() {
+            const modals = document.querySelectorAll('.modal-content');
+            modals.forEach(modal => {
+                if (document.body.classList.contains('theme-dark')) {
+                    modal.classList.add('theme-dark');
+                    modal.classList.remove('theme-light');
+                } else {
+                    modal.classList.add('theme-light');
+                    modal.classList.remove('theme-dark');
+                }
+            });
+        }
+
+        // Optional: if you're using a theme toggle button
+        function toggleTheme() {
+            const currentTheme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.body.className = 'theme-' + newTheme;
+            localStorage.setItem('theme', newTheme);
+            updateModalTheme();  // Update modal theme after switching
+        }
+
 
         window.matchMedia('(prefers-color-scheme: dark)').addListener(e => {
             if (!localStorage.getItem('theme')) {

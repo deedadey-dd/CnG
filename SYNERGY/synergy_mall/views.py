@@ -3,14 +3,24 @@ from decimal import Decimal
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.core.paginator import Paginator
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.http import require_POST
 from django.contrib import messages
-from .models import Product, Wishlist, WishlistItem, Cart, Wishlist, Contribution
+from .models import Product, Wishlist, WishlistItem, Cart, Wishlist, Contribution, ProductImage, Tag
 from django.contrib.auth.models import User
 from .wishlist import WishlistService
 from django.db.models import Q, Count
 from django.utils import timezone
+from .forms import ProductForm, InventoryProductForm, FeaturedAndAvailableForm, CategoryForm
+
+
+# Helper function to check if user is vendor
+def is_vendor(user):
+    return user.is_authenticated and (user.role == 'vendor')  # Check if user is admin or vendor
+
+
+def is_manager(user):
+    return user.is_authenticated and user.groups.filter(name='Managers').exists()
 
 
 # Single Responsibility Principle: Separate logic for paginated product fetching.
@@ -138,14 +148,27 @@ def edit_wishlist(request, wishlist_id):
     return render(request, 'synergy_mall/edit_wishlist.html', context)
 
 
-@login_required
+# @login_required
 def view_wishlist(request, wishlist_id):
     wishlist_service = WishlistService(request.user)
     wishlist = wishlist_service.get_wishlist(wishlist_id)
 
+    general_contributions = wishlist.contribution_set.filter(wishlist_item__isnull=True)
+
+    user_info = {}
+    if request.user.is_authenticated:
+        user_info = {
+            'first_name': request.user.first_name,
+            'surname': request.user.surname,
+            'other_names': request.user.other_names,
+            'phone_number': request.user.phone_number,
+        }
+
     context = {
         'wishlist': wishlist,
-        'items': wishlist.ordered_items()  # Load items in the correct order
+        'items': wishlist.ordered_items(),  # Load items in the correct order
+        'general_contributions': general_contributions,  # Pass general contributions to the template
+        'user_info': user_info,
     }
     return render(request, 'synergy_mall/view_wishlist.html', context)
 
@@ -229,7 +252,17 @@ def remove_wishlist_item(request, wishlist_id, item_id):
 
 def contribute_to_wishlist(request, wishlist_id):
     wishlist = get_object_or_404(Wishlist, id=wishlist_id)
-    amount = Decimal(request.POST.get('amount'))
+
+    try:
+        amount = Decimal(request.POST.get('amount'))  # Ensure it's passed as Decimal
+    except (TypeError, ValueError):
+        messages.error(request, "Invalid contribution amount.")
+        return redirect('view_wishlist', wishlist_id=wishlist_id)
+
+    if amount <= 0:
+        messages.error(request, "Contribution amount must be greater than zero.")
+        return redirect('view_wishlist', wishlist_id=wishlist_id)
+
     contributor_name = request.POST.get('contributor_name')
     contact_info = request.POST.get('contact_info')
     message = request.POST.get('message', '')  # Optional message
@@ -239,9 +272,11 @@ def contribute_to_wishlist(request, wishlist_id):
         # Specific item contribution
         item = get_object_or_404(WishlistItem, id=item_id, wishlist=wishlist)
         handle_item_contribution(item, amount, contributor_name, contact_info, message)
+        messages.success(request, f"Successfully contributed ${amount} to {item.product.name}.")
     else:
         # General contribution, apply to the first item in the wishlist that needs funds
         handle_general_contribution(wishlist, amount, contributor_name, contact_info, message)
+        messages.success(request, f"Successfully contributed ${amount} to {wishlist.title}.")
 
     return redirect('view_wishlist', wishlist_id=wishlist.id)
 
@@ -254,9 +289,9 @@ def handle_item_contribution(item, amount, contributor_name, contact_info, messa
         item.amount_paid += amount
         item.save()
     else:
+        surplus = amount - remaining
         item.amount_paid += remaining
         item.save()
-        surplus = amount - remaining
         distribute_surplus(item.wishlist, surplus)
 
     # Log the contribution with additional details
@@ -279,8 +314,9 @@ def handle_general_contribution(wishlist, amount, contributor_name, contact_info
         if amount <= remaining:
             item.amount_paid += amount
             item.save()
+            amount = Decimal(0)
             break
-        else:
+        else:   # when contribution amount is greater than remaining amount,
             item.amount_paid += remaining
             item.save()
             amount -= remaining
@@ -312,9 +348,9 @@ def distribute_surplus(wishlist, surplus):
                 item.save()
                 return
             else:
+                surplus -= remaining
                 item.amount_paid += remaining
                 item.save()
-                surplus -= remaining
 
     # If any surplus is left after all items are funded, add to user's cash_on_hand
     if surplus > 0:
@@ -322,6 +358,7 @@ def distribute_surplus(wishlist, surplus):
         wishlist.user.save()
 
 
+# ########## PRODUCT VIEWS ##########
 def search_product(request):
     """
     Search products based on query terms. Rank results by relevance:
@@ -360,4 +397,135 @@ def search_product(request):
         'query': query,
     }
     return render(request, 'synergy_mall/search_results.html', context)
+
+
+@user_passes_test(is_vendor)  # Restrict access to vendors or admins
+def add_product(request):
+    if request.method == 'POST':
+        # Handle product form
+        product_form = ProductForm(request.POST, request.FILES)
+
+        if product_form.is_valid():
+            # Save the product, but don't commit to add the vendor first
+            product = product_form.save(commit=False)
+            product.vendor = request.user  # Assign the current user as the vendor
+            product.save()
+
+            # Handle multiple images
+            images = request.FILES.getlist('images')  # 'images' is the name of the file input for multiple files
+            for image in images:
+                ProductImage.objects.create(product=product, image=image)  # Create and link images to the product
+
+            messages.success(request, 'Product added successfully!')
+            return redirect('product_list')
+    else:
+        product_form = ProductForm()
+
+    return render(request, 'synergy_mall/add_product.html', {
+        'form': product_form
+    })
+
+
+@user_passes_test(is_vendor)
+def edit_product(request, product_id):
+    product = get_object_or_404(Product, id=product_id, vendor=request.user)
+
+    if request.method == 'POST':
+        form = InventoryProductForm(request.POST, request.FILES, instance=product)
+        if form.is_valid():
+            product = form.save(commit=False)  # Save the product without committing to the database yet
+
+            # Process the tags input
+            tags_input = request.POST.get('tags')
+            if tags_input:
+                tag_names = [tag.strip() for tag in tags_input.split(',')]
+                product.tags.set(Tag.objects.filter(name__in=tag_names))  # Update the tags for the product
+
+            # Save the product to the database
+            product.save()
+
+            # Assign tags to the product
+            tags = []
+            for name in tag_names:
+                tag, created = Tag.objects.get_or_create(name=name)
+                tags.append(tag)
+            product.tags.set(tags)  # Update the product's tags
+
+            messages.success(request, 'Product updated successfully!')
+            return redirect('product_list')  # Redirect to vendor inventory page
+    else:
+        form = InventoryProductForm(instance=product)
+
+    return render(request, 'synergy_mall/edit_product.html', {'form': form, 'product': product})
+
+
+def product_detail(request, product_id):
+    # Fetch the product by its id
+    product = get_object_or_404(Product, id=product_id)
+
+    # Pass the product to the template
+    context = {
+        'product': product,
+        'vendor_profile': product.vendor.vendor_profile,
+        'images': product.images.all(),
+    }
+    return render(request, 'synergy_mall/product_detail.html', context)
+
+
+@user_passes_test(is_manager)
+def edit_featured_and_available(request, product_id):
+    product = get_object_or_404(Product, id=product_id)
+
+    if request.method == 'POST':
+        form = FeaturedAndAvailableForm(request.POST, instance=product)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Product featured and availability status updated!')
+            return redirect('manager_dashboard')  # Redirect to manager dashboard
+    else:
+        form = FeaturedAndAvailableForm(instance=product)
+
+    return render(request, 'synergy_mall/edit_featured_and_available.html', {'form': form, 'product': product})
+
+
+@user_passes_test(is_manager)
+def add_category(request):
+    if request.method == 'POST':
+        form = CategoryForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('category_list')  # Redirect to a page showing the list of categories
+    else:
+        form = CategoryForm()
+
+    return render(request, 'add_category.html', {'form': form})
+
+
+@user_passes_test(is_vendor)
+def product_list(request):
+    # Fetch the products for the logged-in vendor
+    vendor = request.user
+    products = Product.objects.filter(vendor=vendor)
+    return render(request, 'synergy_mall/product_list.html', {'products': products})
+
+
+@user_passes_test(is_vendor)
+def suspend_product(request, product_id):
+    product = get_object_or_404(Product, id=product_id, vendor=request.user)
+    product.available = False
+    product.save()
+    messages.success(request, 'Product suspended successfully.')
+    return redirect('product_list')
+
+
+@user_passes_test(is_vendor)
+def delete_product(request, product_id):
+    product = get_object_or_404(Product, id=product_id, vendor=request.user)
+
+    if request.method == 'POST':
+        product.delete()
+        messages.success(request, 'Product deleted successfully.')
+        return redirect('product_list')
+
+    return render(request, 'synergy_mall/delete_product.html', {'product': product})
 

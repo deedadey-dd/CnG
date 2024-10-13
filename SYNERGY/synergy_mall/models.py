@@ -3,6 +3,7 @@ from users.models import User
 from django.conf import settings
 from django.utils import timezone
 import uuid
+from decimal import Decimal
 
 
 class Category(models.Model):
@@ -158,6 +159,23 @@ class Wishlist(models.Model):
         """Return the wishlist items ordered by the user's preference (ordering field)."""
         return self.items.all().order_by('ordering')
 
+    def total_contributions(self):
+        """Return the total amount of contributions for this wishlist."""
+        # Sum contributions from both specific items and general contributions
+        total_contributed = Decimal(0)
+        # Add contributions for each wishlist item
+        for item in self.items.all():
+            total_contributed += item.amount_paid
+        # Add general contributions (those without a specific item)
+        general_contributions = self.contribution_set.filter(wishlist_item__isnull=True)
+        for contribution in general_contributions:
+            total_contributed += contribution.amount
+        return total_contributed
+
+    def remaining_cost(self):
+        """Return the remaining amount to fully fund the wishlist."""
+        return self.total_cost() - self.total_contributions()
+
 
 class WishlistItem(models.Model):
     wishlist = models.ForeignKey(Wishlist, on_delete=models.CASCADE, related_name="items")
@@ -169,6 +187,9 @@ class WishlistItem(models.Model):
 
     def __str__(self):
         return f"{self.product.name} in {self.wishlist.title}"
+
+    def total_price(self):
+        return self.product.price * self.quantity
 
     def amount_remaining(self):
         """Return the remaining amount needed for this item."""
