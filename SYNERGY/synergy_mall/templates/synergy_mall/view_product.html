@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <h2>{{ product.name }}</h2>
+    <p>{{ product.description }}</p>
+
+    <div class="product-price">
+        {% if product.is_on_sale %}
+            <p><strong>Sale Price:</strong> ${{ product.sale_price }}</p>
+            <p><strike>Original Price: ${{ product.price }}</strike></p>
+        {% else %}
+            <p><strong>Price:</strong> ${{ product.price }}</p>
+        {% endif %}
+    </div>
+
+    <!-- Dropdown for selecting color -->
+    {% if available_colors %}
+        <div class="form-group">
+            <label for="color-select">Choose a Color:</label>
+            <select id="color-select" class="form-control">
+                {% for color in available_colors %}
+                    <option value="{{ color }}">{{ color }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    {% endif %}
+
+    <!-- Dropdown for selecting size -->
+    {% if available_sizes %}
+        <div class="form-group">
+            <label for="size-select">Choose a Size:</label>
+            <select id="size-select" class="form-control">
+                {% for size in available_sizes %}
+                    <option value="{{ size }}">{{ size }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    {% endif %}
+
+    <!-- Button to Add to Cart -->
+    <form method="post" action="{% url 'add_to_cart' product.id %}">
+        {% csrf_token %}
+        <input type="hidden" id="selected-variant-id" name="variant_id">
+        <button type="submit" class="btn btn-primary">Add to Cart</button>
+    </form>
+</div>
+
+<!-- JavaScript to update selected variant based on color and size -->
+<script>
+    const variants = {{ variants|safe }};
+    const colorSelect = document.getElementById('color-select');
+    const sizeSelect = document.getElementById('size-select');
+    const variantInput = document.getElementById('selected-variant-id');
+
+    function updateVariant() {
+        const selectedColor = colorSelect ? colorSelect.value : null;
+        const selectedSize = sizeSelect ? sizeSelect.value : null;
+        const selectedVariant = variants.find(variant =>
+            (!selectedColor || variant.color === selectedColor) &&
+            (!selectedSize || variant.size === selectedSize)
+        );
+        variantInput.value = selectedVariant ? selectedVariant.id : '';
+    }
+
+    colorSelect?.addEventListener('change', updateVariant);
+    sizeSelect?.addEventListener('change', updateVariant);
+    updateVariant();  // Initialize the first variant on page load
+</script>
+{% endblock %}

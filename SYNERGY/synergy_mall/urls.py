@@ -27,5 +27,7 @@ urlpatterns = [
     path('wishlist/update_order/', views.update_wishlist_order, name='update_wishlist_order'),
     path('wishlists/', views.all_wishlists, name='all_wishlists'),
     path('wishlist/<int:wishlist_id>/contribute/', views.contribute_to_wishlist, name='contribute_to_wishlist'),
-
+    path('categories/', views.category_list, name='category_list'),
+    path('categories/add', views.add_category, name='add_category'),
+    path('bulk-upload-categories/', views.bulk_category_upload, name='bulk_category_upload'),
 ]

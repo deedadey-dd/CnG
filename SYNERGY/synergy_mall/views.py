@@ -1,4 +1,5 @@
 import json
+import pandas as pd
 from decimal import Decimal
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -6,12 +7,13 @@ from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.http import require_POST
 from django.contrib import messages
-from .models import Product, Wishlist, WishlistItem, Cart, Wishlist, Contribution, ProductImage, Tag
+from .models import Product, Wishlist, WishlistItem, Cart, Wishlist, Contribution, ProductImage, Tag, ProductVariant, \
+    Category
 from django.contrib.auth.models import User
 from .wishlist import WishlistService
 from django.db.models import Q, Count
 from django.utils import timezone
-from .forms import ProductForm, InventoryProductForm, FeaturedAndAvailableForm, CategoryForm
+from .forms import ProductForm, InventoryProductForm, FeaturedAndAvailableForm, CategoryForm, BulkCategoryUploadForm
 
 
 # Helper function to check if user is vendor
@@ -361,36 +363,29 @@ def distribute_surplus(wishlist, surplus):
 # ########## PRODUCT VIEWS ##########
 def search_product(request):
     """
-    Search products based on query terms. Rank results by relevance:
-    - Product title matches are prioritized
-    - Then description matches
-    - Finally, other fields (like tags or category)
+    Search products and their variants based on query terms.
+    - Rank results by relevance: Product title and description matches are prioritized.
     """
     query = request.GET.get('q', '').strip()  # Get search terms from query parameter
     products = Product.objects.none()  # Default empty queryset
 
     if query:
-        # Split the query into individual terms (e.g., handling multi-word queries)
         search_terms = query.split()
 
-        # Build a Q object for searching the title, description, and other fields
         title_q = Q()
         description_q = Q()
         other_q = Q()
 
-        # Iterate over search terms and construct Q objects
         for term in search_terms:
             title_q |= Q(name__icontains=term)
             description_q |= Q(description__icontains=term)
-            other_q |= Q(category__name__icontains=term) | Q(tags__name__icontains=term)
+            other_q |= Q(category__name__icontains=term) | Q(tags__name__icontains=term) | Q(variants__color__icontains=term) | Q(variants__size__icontains=term)
 
-        # Apply the search queries, prioritizing by relevance
         products = Product.objects.filter(
             title_q | description_q | other_q
-        ).annotate(
-            # Relevance score: prioritize title matches, then description, then others
+        ).distinct().annotate(
             relevance=Count('name', filter=title_q) * 3 + Count('description', filter=description_q) * 2 + Count('category', filter=other_q)
-        ).order_by('-relevance', 'name')  # Sort by relevance score first, then alphabetically by name
+        ).order_by('-relevance', 'name')
 
     context = {
         'products': products,
@@ -399,31 +394,54 @@ def search_product(request):
     return render(request, 'synergy_mall/search_results.html', context)
 
 
-@user_passes_test(is_vendor)  # Restrict access to vendors or admins
+@user_passes_test(is_vendor)  # Restrict access to vendors only
 def add_product(request):
     if request.method == 'POST':
-        # Handle product form
         product_form = ProductForm(request.POST, request.FILES)
 
         if product_form.is_valid():
-            # Save the product, but don't commit to add the vendor first
+            # Save the product but don't commit yet (because we need to assign the vendor)
             product = product_form.save(commit=False)
             product.vendor = request.user  # Assign the current user as the vendor
             product.save()
 
             # Handle multiple images
-            images = request.FILES.getlist('images')  # 'images' is the name of the file input for multiple files
+            images = request.FILES.getlist('images')
             for image in images:
-                ProductImage.objects.create(product=product, image=image)  # Create and link images to the product
+                ProductImage.objects.create(product=product, image=image)
 
-            messages.success(request, 'Product added successfully!')
+            # Handle product variants (colors and sizes)
+            colors = product_form.cleaned_data['colors']  # This will be a list of colors (or empty)
+            sizes = product_form.cleaned_data['sizes']  # This will be a list of sizes (or empty)
+
+            if colors or sizes:  # Create variants only if colors or sizes are provided
+                for color in colors or [None]:  # If no colors, use None
+                    for size in sizes or [None]:  # If no sizes, use None
+                        ProductVariant.objects.create(product=product, color=color, size=size)
+
+            messages.success(request, 'Product and variants added successfully!')
             return redirect('product_list')
     else:
         product_form = ProductForm()
 
-    return render(request, 'synergy_mall/add_product.html', {
-        'form': product_form
-    })
+    return render(request, 'synergy_mall/add_product.html', {'form': product_form})
+
+
+def view_product(request, product_id):
+    product = get_object_or_404(Product, id=product_id)
+    variants = product.variants.all()
+
+    # Group variants by available colors and sizes
+    available_colors = variants.values_list('color', flat=True).distinct()
+    available_sizes = variants.values_list('size', flat=True).distinct()
+
+    context = {
+        'product': product,
+        'variants': variants,
+        'available_colors': available_colors,
+        'available_sizes': available_sizes,
+    }
+    return render(request, 'synergy_mall/view_product.html', context)
 
 
 @user_passes_test(is_vendor)
@@ -433,41 +451,53 @@ def edit_product(request, product_id):
     if request.method == 'POST':
         form = InventoryProductForm(request.POST, request.FILES, instance=product)
         if form.is_valid():
-            product = form.save(commit=False)  # Save the product without committing to the database yet
+            product = form.save(commit=False)
+            product.save()
 
             # Process the tags input
             tags_input = request.POST.get('tags')
             if tags_input:
                 tag_names = [tag.strip() for tag in tags_input.split(',')]
-                product.tags.set(Tag.objects.filter(name__in=tag_names))  # Update the tags for the product
+                product.tags.set(Tag.objects.filter(name__in=tag_names))
 
-            # Save the product to the database
-            product.save()
+            # Update the variants (colors, sizes) if provided
+            colors = form.cleaned_data['colors']  # List of colors (can be empty)
+            sizes = form.cleaned_data['sizes']  # List of sizes (can be empty)
 
-            # Assign tags to the product
-            tags = []
-            for name in tag_names:
-                tag, created = Tag.objects.get_or_create(name=name)
-                tags.append(tag)
-            product.tags.set(tags)  # Update the product's tags
+            # Clear existing variants and recreate only if colors or sizes are provided
+            product.variants.all().delete()
 
-            messages.success(request, 'Product updated successfully!')
-            return redirect('product_list')  # Redirect to vendor inventory page
+            if colors or sizes:
+                for color in colors:
+                    for size in sizes:
+                        ProductVariant.objects.create(product=product, color=color, size=size)
+
+            messages.success(request, 'Product and variants updated successfully!')
+            return redirect('product_list')
     else:
         form = InventoryProductForm(instance=product)
 
     return render(request, 'synergy_mall/edit_product.html', {'form': form, 'product': product})
 
 
-def product_detail(request, product_id):
-    # Fetch the product by its id
-    product = get_object_or_404(Product, id=product_id)
+@user_passes_test(is_vendor)
+def remove_product_image(request, product_id, image_id):
+    product = get_object_or_404(Product, id=product_id, vendor=request.user)
+    image = get_object_or_404(ProductImage, id=image_id, product=product)
+    image.delete()
+    messages.success(request, 'Image removed successfully.')
+    return redirect('edit_product', product_id=product_id)
 
-    # Pass the product to the template
+
+def product_detail(request, product_id):
+    product = get_object_or_404(Product, id=product_id)
+    variants = product.variants.all()
+
     context = {
         'product': product,
         'vendor_profile': product.vendor.vendor_profile,
         'images': product.images.all(),
+        'variants': variants,
     }
     return render(request, 'synergy_mall/product_detail.html', context)
 
@@ -488,7 +518,8 @@ def edit_featured_and_available(request, product_id):
     return render(request, 'synergy_mall/edit_featured_and_available.html', {'form': form, 'product': product})
 
 
-@user_passes_test(is_manager)
+# CATEGORIES VIEW
+# @user_passes_test(is_manager)
 def add_category(request):
     if request.method == 'POST':
         form = CategoryForm(request.POST)
@@ -498,7 +529,52 @@ def add_category(request):
     else:
         form = CategoryForm()
 
-    return render(request, 'add_category.html', {'form': form})
+    return render(request, 'synergy_mall/add_category.html', {'form': form})
+
+
+def category_list(request):
+    categories = Category.objects.all()  # Retrieve all categories from the database
+    return render(request, 'synergy_mall/category_list.html', {'categories': categories})
+
+
+def bulk_category_upload(request):
+    if request.method == 'POST':
+        form = BulkCategoryUploadForm(request.POST, request.FILES)
+
+        if form.is_valid():
+            # Get the uploaded file
+            uploaded_file = request.FILES['file']
+
+            # Read the file depending on its extension
+            try:
+                if uploaded_file.name.endswith('.xlsx'):
+                    df = pd.read_excel(uploaded_file)
+                elif uploaded_file.name.endswith('.csv'):
+                    df = pd.read_csv(uploaded_file)
+                else:
+                    messages.error(request, 'Unsupported file format. Please upload an Excel or CSV file.')
+                    return redirect('bulk_category_upload')
+
+                # Loop through the DataFrame and create categories
+                for index, row in df.iterrows():
+                    category_name = row.get('name')
+                    category_description = row.get('description', '')
+
+                    if category_name:  # Ensure the name is not empty
+                        Category.objects.get_or_create(
+                            name=category_name,
+                            defaults={'description': category_description}
+                        )
+
+                messages.success(request, 'Categories uploaded successfully!')
+                return redirect('category_list')  # Redirect to the category list page
+            except Exception as e:
+                messages.error(request, f'Error processing file: {e}')
+                return redirect('bulk_category_upload')
+    else:
+        form = BulkCategoryUploadForm()
+
+    return render(request, 'synergy_mall/bulk_category_upload.html', {'form': form})
 
 
 @user_passes_test(is_vendor)
@@ -529,3 +605,12 @@ def delete_product(request, product_id):
 
     return render(request, 'synergy_mall/delete_product.html', {'product': product})
 
+
+def add_to_cart(request, product_id):
+    variant_id = request.POST.get('variant_id')
+    variant = get_object_or_404(ProductVariant, id=variant_id)
+
+    # Add variant to the cart (this will depend on your cart implementation)
+    # cart.add(variant=variant, quantity=1)
+
+    return redirect('view_cart')
