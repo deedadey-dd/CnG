@@ -65,6 +65,9 @@ class ProductForm(forms.ModelForm):
         return []
 
 
+class BulkProductUploadForm(forms.Form):
+    file = forms.FileField(label='Upload Excel file')
+
 # These funcctions allow for multiple files to be uploaded.
 
 

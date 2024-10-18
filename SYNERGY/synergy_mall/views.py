@@ -1,7 +1,9 @@
 import json
+
+import openpyxl
 import pandas as pd
 from decimal import Decimal
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -13,7 +15,8 @@ from django.contrib.auth.models import User
 from .wishlist import WishlistService
 from django.db.models import Q, Count
 from django.utils import timezone
-from .forms import ProductForm, InventoryProductForm, FeaturedAndAvailableForm, CategoryForm, BulkCategoryUploadForm
+from .forms import ProductForm, InventoryProductForm, FeaturedAndAvailableForm, CategoryForm, BulkCategoryUploadForm, \
+    BulkProductUploadForm
 
 
 # Helper function to check if user is vendor
@@ -425,6 +428,124 @@ def add_product(request):
         product_form = ProductForm()
 
     return render(request, 'synergy_mall/add_product.html', {'form': product_form})
+
+
+@user_passes_test(is_vendor)
+def bulk_add_products(request):
+    if request.method == 'POST':
+        form = BulkProductUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            excel_file = request.FILES['file']
+
+            try:
+                # Load the Excel file using pandas
+                df = pd.read_excel(excel_file, engine='openpyxl')
+
+                # Validate and process each row
+                for index, row in df.iterrows():
+                    product_name = row['Name']
+                    description = row['Description']
+                    category_name = row['Category']
+                    price = row['Price']
+                    sale_price = row.get('Sale Price', None)  # Sale price is optional
+                    color = row.get('Color', None)
+                    size = row.get('Size', None)
+                    sku = row['SKU']
+                    stock = row['Stock']
+
+                    # Get or create the category
+                    category, created = Category.objects.get_or_create(name=category_name)
+
+                    # Create the product (if it doesn't already exist)
+                    product, created = Product.objects.get_or_create(
+                        name=product_name,
+                        description=description,
+                        price=price,
+                        sale_price=sale_price,
+                        vendor=request.user,  # Assign the current user as the vendor
+                        category=category,
+                    )
+
+                    # Create the variant (color and size can be None if not specified)
+                    ProductVariant.objects.create(
+                        product=product,
+                        color=color,
+                        size=size,
+                        sku=sku,
+                        stock=stock,
+                    )
+
+                messages.success(request, 'Products added successfully!')
+                return redirect('product_list')
+
+            except Exception as e:
+                messages.error(request, f'Error processing file: {e}')
+    else:
+        form = BulkProductUploadForm()
+
+    return render(request, 'synergy_mall/bulk_add_products.html', {'form': form})
+
+
+def download_bulk_product_template(request):
+    # Create a new Excel workbook and sheet
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Product Template"
+
+    # Define the headers (columns) for the Excel file
+    headers = [
+        'Name', 'Description', 'Category', 'Price', 'Sale Price (Optional)', 'Color (Optional)',
+        'Size (Optional)', 'SKU', 'Stock'
+    ]
+
+    # Add the headers to the first row
+    for col_num, header in enumerate(headers, 1):
+        ws.cell(row=1, column=col_num, value=header)
+
+    # Get all available categories from the database
+    categories = Category.objects.values_list('name', flat=True)
+
+    # Create a separate sheet for categories
+    category_sheet = wb.create_sheet(title="Categories")
+    for index, category in enumerate(categories, 1):
+        category_sheet.cell(row=index, column=1, value=category)
+
+    # Define the data validation for category dropdown
+    category_range = f'Categories!$A$1:$A${len(categories)}'  # Adjust the range based on the number of categories
+    category_validation = openpyxl.worksheet.datavalidation.DataValidation(
+        type="list", formula1=category_range, allow_blank=False
+    )
+
+    # Apply the validation to the category column (column 3)
+    category_validation.add(f'C2:C1048576')  # Excel's max row limit for validation
+
+    ws.add_data_validation(category_validation)
+
+    # Set the response to return the Excel file as an attachment
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+    # Define the filename for the Excel file
+    filename = f'bulk_product_template_{timezone.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+    response['Content-Disposition'] = f'attachment; filename={filename}'
+
+    # Save the workbook to the response
+    wb.save(response)
+
+    return response
+
+
+@user_passes_test(is_vendor)
+def upload_product_images(request, product_id):
+    product = get_object_or_404(Product, id=product_id, vendor=request.user)
+
+    if request.method == 'POST':
+        images = request.FILES.getlist('images')
+        for image in images:
+            ProductImage.objects.create(product=product, image=image)
+        messages.success(request, 'Images uploaded successfully!')
+        return redirect('product_list')
+
+    return render(request, 'synergy_mall/upload_images.html', {'product': product})
 
 
 def view_product(request, product_id):

@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <h2>Upload Images for {{ product.name }}</h2>
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="images">Select images</label>
+            <input type="file" name="images" multiple class="form-control">
+        </div>
+        <button type="submit" class="btn btn-primary">Upload Images</button>
+    </form>
+</div>
+{% endblock %}
