@@ -11,29 +11,6 @@
             <!-- Render Form Fields -->
             {{ form.as_p }}
 
-            <!-- Tags Field (with Tagify) -->
-            <div class="form-group">
-                <label for="tags">Tags (comma-separated):</label>
-                <input type="text" name="tags" class="form-control"
-                       value="{% for tag in product.tags.all %}{{ tag.name }}{% if not forloop.last %}, {% endif %}{% endfor %}">
-            </div>
-
-            <!-- Optional Colors Field -->
-            <div class="form-group">
-                <label for="colors">Available Colors (optional, comma-separated):</label>
-                <input type="text" name="colors" class="form-control"
-                       value="{% for variant in product.variants.all %}{% if variant.color %}{{ variant.color }}{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}">
-                <small class="form-text text-muted">Example: Red, Blue, Green (leave empty if not applicable)</small>
-            </div>
-
-            <!-- Optional Sizes Field -->
-            <div class="form-group">
-                <label for="sizes">Available Sizes (optional, comma-separated):</label>
-                <input type="text" name="sizes" class="form-control"
-                       value="{% for variant in product.variants.all %}{% if variant.size %}{{ variant.size }}{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}">
-                <small class="form-text text-muted">Example: S, M, L or 38, 39, 40 (leave empty if not applicable)</small>
-            </div>
-
             <!-- Product Images (Display existing images with option to add more) -->
             <div class="form-group">
                 <label for="images">Product Images</label>

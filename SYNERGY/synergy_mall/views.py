@@ -565,6 +565,41 @@ def view_product(request, product_id):
     return render(request, 'synergy_mall/view_product.html', context)
 
 
+# @user_passes_test(is_vendor)
+# def edit_product(request, product_id):
+#     product = get_object_or_404(Product, id=product_id, vendor=request.user)
+#
+#     if request.method == 'POST':
+#         form = InventoryProductForm(request.POST, request.FILES, instance=product)
+#         if form.is_valid():
+#             product = form.save(commit=False)
+#             product.save()
+#
+#             # Process the tags input
+#             tags_input = request.POST.get('tags')
+#             if tags_input:
+#                 tag_names = [tag.strip() for tag in tags_input.split(',')]
+#                 product.tags.set(Tag.objects.filter(name__in=tag_names))
+#
+#             # Update the variants (colors, sizes) if provided
+#             colors = form.cleaned_data['colors']  # List of colors (can be empty)
+#             sizes = form.cleaned_data['sizes']  # List of sizes (can be empty)
+#
+#             # Clear existing variants and recreate only if colors or sizes are provided
+#             product.variants.all().delete()
+#
+#             if colors or sizes:
+#                 for color in colors:
+#                     for size in sizes:
+#                         ProductVariant.objects.create(product=product, color=color, size=size)
+#
+#             messages.success(request, 'Product and variants updated successfully!')
+#             return redirect('product_list')
+#     else:
+#         form = InventoryProductForm(instance=product)
+#
+#     return render(request, 'synergy_mall/edit_product.html', {'form': form, 'product': product})
+
 @user_passes_test(is_vendor)
 def edit_product(request, product_id):
     product = get_object_or_404(Product, id=product_id, vendor=request.user)
@@ -581,17 +616,33 @@ def edit_product(request, product_id):
                 tag_names = [tag.strip() for tag in tags_input.split(',')]
                 product.tags.set(Tag.objects.filter(name__in=tag_names))
 
-            # Update the variants (colors, sizes) if provided
-            colors = form.cleaned_data['colors']  # List of colors (can be empty)
-            sizes = form.cleaned_data['sizes']  # List of sizes (can be empty)
+            # Handle variants (colors, sizes, SKU, and stock)
+            colors = form.cleaned_data['colors']  # Comma-separated string
+            sizes = form.cleaned_data['sizes']    # Comma-separated string
+            sku = form.cleaned_data.get('sku', None)
+            stock = form.cleaned_data.get('stock', None)
 
-            # Clear existing variants and recreate only if colors or sizes are provided
+            # Convert comma-separated strings into lists
+            color_list = [color.strip() for color in colors.split(',')] if colors else []
+            size_list = [size.strip() for size in sizes.split(',')] if sizes else []
+
+            # Clear existing variants and recreate them
             product.variants.all().delete()
 
-            if colors or sizes:
-                for color in colors:
-                    for size in sizes:
-                        ProductVariant.objects.create(product=product, color=color, size=size)
+            for color in color_list:
+                for size in size_list:
+                    # Generate SKU if not provided
+                    if not sku:
+                        sku = f"{product.name[:3]}-{color[:2]}-{size[:2]}"  # Example SKU generation logic
+
+                    # Create the variant with the provided SKU and stock
+                    ProductVariant.objects.create(
+                        product=product,
+                        color=color,
+                        size=size,
+                        sku=sku,
+                        stock=stock if stock else 0  # Assign default stock if not provided
+                    )
 
             messages.success(request, 'Product and variants updated successfully!')
             return redirect('product_list')

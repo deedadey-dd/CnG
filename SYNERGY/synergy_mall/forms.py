@@ -86,23 +86,54 @@ class BulkCategoryUploadForm(forms.Form):
     file = forms.FileField(label='Upload Excel or CSV file', required=True)
 
 
+# class InventoryProductForm(forms.ModelForm):
+#     images = MultipleFileField(required=False)  # Optional: Allow multiple file uploads
+#
+#     class Meta:
+#         model = Product
+#         exclude = ['tags', 'sku', 'color']  # Exclude fields that don't exist or are not applicable
+#
+#         fields = ['name', 'description', 'price', 'sale_price', 'category', 'condition']
+#
+#         widgets = {
+#             'name': forms.TextInput(attrs={'class': 'form-control'}),
+#             'description': forms.Textarea(attrs={'class': 'form-control'}),
+#             'price': forms.NumberInput(attrs={'class': 'form-control'}),
+#             'sale_price': forms.NumberInput(attrs={'class': 'form-control'}),
+#             'category': forms.Select(attrs={'class': 'form-control'}),
+#             'condition': forms.Select(choices=[('new', 'New'), ('used', 'Used'), ('refurbished', 'Refurbished')],
+#                                       attrs={'class': 'form-control'}),
+#         }
+
 class InventoryProductForm(forms.ModelForm):
-    images = MultipleFileField(required=False)  # Optional: Allow multiple file uploads
+    # Define fields for colors and sizes
+    colors = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter colors separated by commas'})
+    )
+    sizes = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter sizes separated by commas'})
+    )
+    sku = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter SKU for the product variant'})
+    )
+    stock = forms.IntegerField(
+        required=False,
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Enter stock for the variant'})
+    )
 
     class Meta:
         model = Product
-        exclude = ['tags', 'sku', 'color']  # Exclude fields that don't exist or are not applicable
-
-        fields = ['name', 'description', 'price', 'sale_price', 'category', 'condition']
-
+        fields = ['name', 'description', 'price', 'sale_price', 'category', 'condition', 'tags']  # Include other fields as needed
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control'}),
             'price': forms.NumberInput(attrs={'class': 'form-control'}),
             'sale_price': forms.NumberInput(attrs={'class': 'form-control'}),
             'category': forms.Select(attrs={'class': 'form-control'}),
-            'condition': forms.Select(choices=[('new', 'New'), ('used', 'Used'), ('refurbished', 'Refurbished')],
-                                      attrs={'class': 'form-control'}),
+            'condition': forms.Select(attrs={'class': 'form-control'}),
         }
 
 
