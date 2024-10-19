@@ -4,11 +4,15 @@ from . import views
 urlpatterns = [
     path('', views.index, name='index'),
     path('add-product/', views.add_product, name='add_product'),
+    path('add-product-bulk/', views.bulk_add_products, name='add_bulk_product'),
+    path('add-product/', views.upload_product_images, name='upload_product_images'),
     path('add-category/', views.add_category, name='add_category'),
     path('product-list/', views.product_list, name='product_list'),
     path('products/suspend/<int:product_id>/', views.suspend_product, name='suspend_product'),
     path('products/delete/<int:product_id>/', views.delete_product, name='delete_product'),
     path('products/edit/<int:product_id>/', views.edit_product, name='edit_product'),
+    path('products/remove-image/<int:product_id>/<int:image_id>/', views.remove_product_image, name='remove_product_image'),
+    path('download-template/', views.download_bulk_product_template, name='download_bulk_product_template'),
     # path('cart/add/<int:product_id>/', views.add_to_cart, name='add_to_cart'),
     # path('cart/', views.cart_detail, name='cart_detail'),
     # path('checkout/', views.checkout, name='checkout'),
@@ -27,5 +31,7 @@ urlpatterns = [
     path('wishlist/update_order/', views.update_wishlist_order, name='update_wishlist_order'),
     path('wishlists/', views.all_wishlists, name='all_wishlists'),
     path('wishlist/<int:wishlist_id>/contribute/', views.contribute_to_wishlist, name='contribute_to_wishlist'),
-
+    path('categories/', views.category_list, name='category_list'),
+    path('categories/add', views.add_category, name='add_category'),
+    path('bulk-upload-categories/', views.bulk_category_upload, name='bulk_category_upload'),
 ]

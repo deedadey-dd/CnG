@@ -11,6 +11,8 @@
                 <div class="card-body">
                     <form method="POST" enctype="multipart/form-data">
                         {% csrf_token %}
+
+                        <!-- Render Form Fields Dynamically -->
                         {% for field in form %}
                             <div class="form-group mb-3">
                                 <label for="{{ field.id_for_label }}">{{ field.label }}</label>
@@ -26,6 +28,20 @@
                             </div>
                         {% endfor %}
 
+                        <!-- Colors Field (Optional) -->
+                        <div class="form-group">
+                            <label for="colors">Available Colors (optional, comma-separated):</label>
+                            <input type="text" name="colors" class="form-control" placeholder="e.g., Red, Blue, Green">
+                            <small class="form-text text-muted">Leave empty if not applicable.</small>
+                        </div>
+
+                        <!-- Sizes Field (Optional) -->
+                        <div class="form-group">
+                            <label for="sizes">Available Sizes (optional, comma-separated):</label>
+                            <input type="text" name="sizes" class="form-control" placeholder="e.g., S, M, L or 38, 39, 40">
+                            <small class="form-text text-muted">Leave empty if not applicable.</small>
+                        </div>
+                        <!-- Submit Button -->
                         <div class="form-group text-center">
                             <button type="submit" class="btn btn-primary">Add Product</button>
                         </div>

@@ -32,11 +32,13 @@ class ProductImageForm(forms.ModelForm):
 
 
 class ProductForm(forms.ModelForm):
-    images = MultipleFileField()  # Add this to allow multiple file uploads
+    images = MultipleFileField()  # To allow multiple file uploads
+    colors = forms.CharField(required=False, help_text="Enter multiple colors separated by commas.")
+    sizes = forms.CharField(required=False, help_text="Enter multiple sizes separated by commas.")
 
     class Meta:
         model = Product
-        fields = ['name', 'description', 'price', 'sale_price', 'category', 'sku', 'condition', 'color']
+        fields = ['name', 'description', 'price', 'sale_price', 'category', 'condition']  # Removed sku
 
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
@@ -44,11 +46,27 @@ class ProductForm(forms.ModelForm):
             'price': forms.NumberInput(attrs={'class': 'form-control'}),
             'sale_price': forms.NumberInput(attrs={'class': 'form-control'}),
             'category': forms.Select(attrs={'class': 'form-control'}),
-            'sku': forms.TextInput(attrs={'class': 'form-control'}),
-            'condition': forms.Select(choices=[('new', 'New'), ('used', 'Used'), ('refurbished', 'Refurbished')], attrs={'class': 'form-control'}),
-            'color': forms.TextInput(attrs={'class': 'form-control'}),
+            'condition': forms.Select(choices=[('new', 'New'), ('used', 'Used'), ('refurbished', 'Refurbished')],
+                                      attrs={'class': 'form-control'}),
         }
 
+    def clean_colors(self):
+        """ Ensure the input for colors is valid """
+        colors = self.cleaned_data.get('colors')
+        if colors:
+            return [color.strip() for color in colors.split(',')]
+        return []
+
+    def clean_sizes(self):
+        """ Ensure the input for sizes is valid """
+        sizes = self.cleaned_data.get('sizes')
+        if sizes:
+            return [size.strip() for size in sizes.split(',')]
+        return []
+
+
+class BulkProductUploadForm(forms.Form):
+    file = forms.FileField(label='Upload Excel file')
 
 # These funcctions allow for multiple files to be uploaded.
 
@@ -58,34 +76,64 @@ class CategoryForm(forms.ModelForm):
         model = Category
         fields = ['name', 'description']
 
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control'}),
+        }
+
+
+class BulkCategoryUploadForm(forms.Form):
+    file = forms.FileField(label='Upload Excel or CSV file', required=True)
+
+
+# class InventoryProductForm(forms.ModelForm):
+#     images = MultipleFileField(required=False)  # Optional: Allow multiple file uploads
+#
+#     class Meta:
+#         model = Product
+#         exclude = ['tags', 'sku', 'color']  # Exclude fields that don't exist or are not applicable
+#
+#         fields = ['name', 'description', 'price', 'sale_price', 'category', 'condition']
+#
+#         widgets = {
+#             'name': forms.TextInput(attrs={'class': 'form-control'}),
+#             'description': forms.Textarea(attrs={'class': 'form-control'}),
+#             'price': forms.NumberInput(attrs={'class': 'form-control'}),
+#             'sale_price': forms.NumberInput(attrs={'class': 'form-control'}),
+#             'category': forms.Select(attrs={'class': 'form-control'}),
+#             'condition': forms.Select(choices=[('new', 'New'), ('used', 'Used'), ('refurbished', 'Refurbished')],
+#                                       attrs={'class': 'form-control'}),
+#         }
 
 class InventoryProductForm(forms.ModelForm):
-    images = MultipleFileField()
-    # tags = forms.CharField(required=False, widget=forms.TextInput(
-    # attrs={'placeholder': 'Add tags separated by commas', 'class': 'form-control'})
-    # )
+    # Define fields for colors and sizes
+    colors = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter colors separated by commas'})
+    )
+    sizes = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter sizes separated by commas'})
+    )
+    sku = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter SKU for the product variant'})
+    )
+    stock = forms.IntegerField(
+        required=False,
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Enter stock for the variant'})
+    )
 
     class Meta:
         model = Product
-        exclude = ['tags']  # Exclude tags field from being rendered automatically
-        # Exclude 'featured' and 'available' from the form
-        fields = ['name', 'stock', 'description', 'price', 'sale_price', 'category', 'sku', 'condition',
-                  'color', 'tags',
-                  ]
-
+        fields = ['name', 'description', 'price', 'sale_price', 'category', 'condition', 'tags']  # Include other fields as needed
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
-            'stock': forms.NumberInput(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control'}),
             'price': forms.NumberInput(attrs={'class': 'form-control'}),
             'sale_price': forms.NumberInput(attrs={'class': 'form-control'}),
             'category': forms.Select(attrs={'class': 'form-control'}),
-            'sku': forms.TextInput(attrs={'class': 'form-control'}),
-            'image': forms.ClearableFileInput(attrs={'class': 'form-control'}),
-            'condition': forms.Select(choices=[('new', 'New'), ('used', 'Used'), ('refurbished', 'Refurbished')], attrs={'class': 'form-control'}),
-            'color': forms.TextInput(attrs={'class': 'form-control'}),
-            # 'tags': forms.Textarea(attrs={'class': 'form-control'}),
-
+            'condition': forms.Select(attrs={'class': 'form-control'}),
         }
 
 
@@ -95,8 +143,8 @@ class FeaturedAndAvailableForm(forms.ModelForm):
         fields = ['available', 'featured']
 
         widgets = {
-            'available': forms.CheckboxInput(attrs={'class': 'form-control'}),
-            'featured': forms.CheckboxInput(attrs={'class': 'form-control'}),
+            'available': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'featured': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
 
