@@ -11,6 +11,9 @@ def user_register(request):
     if request.method == 'POST':
         form = UserRegistrationForm(request.POST, request.FILES)
         if form.is_valid():
+            user = form.save(commit=False)
+            # Set the user role as 'regular'
+            user.role = 'regular'
             form.save()
             return redirect('custom_login')
     else:

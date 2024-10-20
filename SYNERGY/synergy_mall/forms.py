@@ -138,27 +138,11 @@ class BulkCategoryUploadForm(forms.Form):
 #         }
 
 class InventoryProductForm(forms.ModelForm):
-    # Define fields for colors and sizes
-    colors = forms.CharField(
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter colors separated by commas'})
-    )
-    sizes = forms.CharField(
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter sizes separated by commas'})
-    )
-    sku = forms.CharField(
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter SKU for the product variant'})
-    )
-    stock = forms.IntegerField(
-        required=False,
-        widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Enter stock for the variant'})
-    )
+    images = MultipleFileField(required=False)  # Multiple images support for the product
 
     class Meta:
         model = Product
-        fields = ['name', 'description', 'price', 'sale_price', 'category', 'condition', 'tags']  # Include other fields as needed
+        fields = ['name', 'description', 'price', 'sale_price', 'category', 'condition']  # Removed colors, sizes, and SKU
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control'}),

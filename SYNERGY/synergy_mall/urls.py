@@ -35,4 +35,5 @@ urlpatterns = [
     path('categories/', views.category_list, name='category_list'),
     path('categories/add', views.add_category, name='add_category'),
     path('bulk-upload-categories/', views.bulk_category_upload, name='bulk_category_upload'),
+    path('vendor/<int:vendor_id>/products/', views.vendor_products, name='vendor_products'),
 ]

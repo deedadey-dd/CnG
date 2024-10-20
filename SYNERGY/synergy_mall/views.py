@@ -11,7 +11,8 @@ from django.views.decorators.http import require_POST
 from django.contrib import messages
 from .models import Product, Wishlist, WishlistItem, Cart, Wishlist, Contribution, ProductImage, Tag, ProductVariant, \
     Category
-from django.contrib.auth.models import User
+# from django.contrib.auth.models import User
+from users.models import User
 from .wishlist import WishlistService
 from django.db.models import Q, Count
 from django.utils import timezone
@@ -610,46 +611,18 @@ def edit_product(request, product_id):
             product = form.save(commit=False)
             product.save()
 
-            # Process the tags input
+            # Process tags
             tags_input = request.POST.get('tags')
             if tags_input:
                 tag_names = [tag.strip() for tag in tags_input.split(',')]
                 product.tags.set(Tag.objects.filter(name__in=tag_names))
 
-            # Handle Variants (colors, sizes, SKU, and stock)
-            colors = form.cleaned_data['colors']  # Comma-separated string
-            sizes = form.cleaned_data['sizes']    # Comma-separated string
-            stock = form.cleaned_data.get('stock', None)
+            # Handle images (if any)
+            images = request.FILES.getlist('images')
+            for image in images:
+                ProductImage.objects.create(product=product, image=image)
 
-            # Convert comma-separated strings into lists
-            color_list = [color.strip() for color in colors.split(',')] if colors else []
-            size_list = [size.strip() for size in sizes.split(',')] if sizes else []
-
-            # Loop through variants and either update or create new variants
-            for color in color_list:
-                for size in size_list:
-                    variant, created = ProductVariant.objects.get_or_create(
-                        product=product,
-                        color=color,
-                        size=size,
-                        defaults={
-                            'stock': stock if stock else 0,
-                            'sku': f"{product.name[:3]}-{color[:2]}-{size[:2]}"  # Example SKU generation
-                        }
-                    )
-
-                    # If the variant already exists, update stock and SKU (if provided)
-                    if not created:
-                        if stock is not None:
-                            variant.stock = stock
-                        if form.cleaned_data.get('sku'):
-                            variant.sku = form.cleaned_data['sku']
-                        variant.save()
-
-            # Remove variants that are no longer relevant (colors or sizes removed)
-            product.variants.exclude(color__in=color_list, size__in=size_list).delete()
-
-            messages.success(request, 'Product and variants updated successfully!')
+            messages.success(request, 'Product details updated successfully!')
             return redirect('product_list')
     else:
         form = InventoryProductForm(instance=product)
@@ -743,6 +716,19 @@ def manage_product_variants(request, product_id):
         'product': product,
         'variants': variants,
     })
+
+
+def vendor_products(request, vendor_id):
+    vendor = get_object_or_404(User, id=vendor_id, role='vendor')  # Ensure the user is a vendor
+
+    products = Product.objects.filter(vendor=vendor)  # Fetch all products belonging to the vendor
+
+    context = {
+        'vendor': vendor,
+        'products': products,
+    }
+
+    return render(request, 'synergy_mall/vendor_products.html', context)
 
 
 @user_passes_test(is_manager)
