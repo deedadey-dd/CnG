@@ -3,41 +3,43 @@
 <script src="https://unpkg.com/@yaireo/tagify"></script>
 
 {% block content %}
-    <div class="container">
-        <h2>Edit Product: {{ product.name }}</h2>
-        <form method="POST" enctype="multipart/form-data">
-            {% csrf_token %}
+<div class="container">
+    <h2>Edit Product: {{ product.name }}</h2>
 
-            <!-- Render Form Fields -->
-            {{ form.as_p }}
+    <!-- Product Form (Main Product Details and Images) -->
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
 
-            <!-- Product Images (Display existing images with option to add more) -->
-            <div class="form-group">
-                <label for="images">Product Images</label>
-                <input type="file" name="images" id="images" multiple class="form-control">
-                <small class="form-text text-muted">Upload additional images (current images will remain unless removed).</small>
-            </div>
+        <!-- Render Product Fields from Form -->
+        {{ form.as_p }}
 
-            <!-- Display Existing Images with Remove Option -->
-            <div class="existing-images mt-3">
-                <h5>Existing Images:</h5>
-                <div class="row">
-                    {% for image in product.images.all %}
-                        <div class="col-md-3">
-                            <img src="{{ image.image.url }}" class="img-thumbnail" style="width: 100px; height: 100px;">
-                            <a href="{% url 'remove_product_image' product.id image.id %}" class="btn btn-danger btn-sm mt-2">Remove</a>
-                        </div>
-                    {% endfor %}
+        <!-- Product Images Upload Field -->
+        <div class="form-group">
+            <label for="images">Add New Images</label>
+            <input type="file" name="images" id="images" multiple class="form-control">
+            <small class="form-text text-muted">You can upload multiple images. Existing images will remain unless removed.</small>
+        </div>
+
+        <!-- Existing Images (with option to remove) -->
+        <div class="existing-images mt-3">
+            <h5>Existing Images:</h5>
+            <div class="row">
+                {% for image in existing_images %}
+                <div class="col-md-3">
+                    <img src="{{ image.image.url }}" class="img-thumbnail" style="width: 100px; height: 100px;">
+                    <a href="{% url 'remove_product_image' product.id image.id %}" class="btn btn-danger btn-sm mt-2">Remove</a>
                 </div>
+                {% endfor %}
             </div>
+        </div>
 
-            <button type="submit" class="btn btn-primary mt-4">Save Changes</button>
-        </form>
-    </div>
+        <!-- Submit Button -->
+        <button type="submit" class="btn btn-primary mt-4">Save Changes</button>
+    </form>
+</div>
 
 <script>
     var input = document.querySelector('input[name=tags]');
     new Tagify(input);
 </script>
-
 {% endblock %}

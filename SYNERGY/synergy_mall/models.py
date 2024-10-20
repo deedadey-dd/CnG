@@ -54,7 +54,19 @@ class ProductVariant(models.Model):
     size = models.CharField(max_length=20, blank=True, null=True)  # Optional: Some products may not have size variants
     sku = models.CharField(max_length=50, blank=True, null=True, unique=True)
     stock = models.PositiveIntegerField(default=0)
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # Variant-specific price
+    sale_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # Variant-specific sale price
     image = models.ImageField(upload_to='media/product_variants/', blank=True, null=True)
+
+    def get_effective_price(self):
+        """
+        Calculate the effective price for the variant.
+        If the product is on sale, apply the sale price of the variant or product.
+        Otherwise, use the regular price.
+        """
+        if self.product.is_on_sale():
+            return self.sale_price if self.sale_price else self.product.get_sale_price()
+        return self.price if self.price else self.product.price
 
     def __str__(self):
         variant_str = f"{self.product.name}"
