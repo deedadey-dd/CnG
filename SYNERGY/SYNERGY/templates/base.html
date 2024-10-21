@@ -16,15 +16,21 @@
 
 </head>
 <body class="theme-light">
-    <nav class="navbar navbar-expand-lg sticky-top">
+    <nav class="navbar navbar-expand-lg navbar-light sticky-top">
         <a class="navbar-brand" href="{% url 'index' %}">Synergy Mall</a>
-        <form class="d-flex mx-auto" action="{% url 'search_product' %}" method="GET">
-          <input class="form-control me-2" type="search" name="q" placeholder="Search the Store" aria-label="Search" required>
-          <button class="btn btn-outline-success" type="submit">Search</button>
-        </form>
+
+        <!-- Toggler for mobile -->
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
+            <span class="navbar-toggler-icon"></span>  <!-- Ensures the hamburger icon is displayed -->
         </button>
+
+        <!-- Search form with Enter key for search -->
+        <form class="d-flex mx-auto" action="{% url 'search_product' %}" method="GET">
+            <input class="form-control me-2" type="search" name="q" placeholder="Search the Store" aria-label="Search" required>
+            <button class="btn btn-outline-success d-none d-lg-block" type="submit">Search</button>
+            <!-- Hidden search button on mobile (d-none d-lg-block) -->
+        </form>
+
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ml-auto">
                 <li class="nav-item">
@@ -47,7 +53,7 @@
                             <a class="nav-link" href="#">Pending Orders</a>
                         </li>
                     {% else %}
-                        <!--Regular Users views-->
+                        <!-- Regular Users views -->
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'create_wishlist' %}">Create Wishlist</a>
                         </li>
@@ -92,6 +98,7 @@
             </ul>
         </div>
     </nav>
+
 
     <!-- Registration Modal -->
     <div class="modal fade" id="registerModal" tabindex="-1" role="dialog" aria-labelledby="registerModalLabel" aria-hidden="true">
