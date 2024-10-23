@@ -7,11 +7,9 @@
 <div class="container mt-5">
     <div class="row">
         {% for product in products_page %}
-        <div class="col-md-4 mb-0">
+        <div class="col-6 col-md-3">
             <div class="card mb-2 mt-0">
-                <!-- Wrap the carousel in an anchor tag to make the image clickable -->
                 <a href="#" data-toggle="modal" data-target="#productModal{{ product.id }}">
-                    <!-- Carousel for Product Images -->
                     <div id="productCarousel{{ product.id }}" class="carousel slide" data-ride="carousel">
                         <div class="carousel-inner">
                             {% for image in product.images.all %}
@@ -35,7 +33,6 @@
                     </div>
                 </a>
 
-                <!-- Product details in the card body -->
                 <div class="card-body">
                     <p class="card-title mb-0 mt-0">{{ product.name }}</p>
                     <p class="card-text mb-0 mt-0"><strong>${{ product.price }}</strong></p>
@@ -54,7 +51,6 @@
                         </button>
                     </div>
                     <div class="modal-body">
-                        <!-- Carousel in modal for larger image display -->
                         <div id="modalCarousel{{ product.id }}" class="carousel slide" data-ride="carousel">
                             <div class="carousel-inner">
                                 {% for image in product.images.all %}
@@ -82,9 +78,6 @@
                             <h5>Description:</h5>
                             <p>{{ product.description }}</p>
 
-                            <!-- Vendor Details -->
-                            <h5>Store: <a href="{% url 'vendor_products' product.vendor.id %}">{{ product.vendor.vendor_profile.company_name }}</a></h5>
-
                             <!-- Price and Sale Price -->
                             <h5>Price: ${{ product.price }}</h5>
                             {% if product.sale_price and product.is_on_sale %}
@@ -92,28 +85,27 @@
                             {% endif %}
 
                             <!-- Variant Selection -->
-                            <h5>Select Variant:</h5>
                             <form id="variantForm{{ product.id }}" method="POST">
                                 {% csrf_token %}
 
-                                <!-- Color Dropdown -->
-                                <div class="form-group">
-                                    <label for="colorSelect{{ product.id }}">Color</label>
-                                    <select id="colorSelect{{ product.id }}" name="color" class="form-control">
-                                        {% for variant in product.variants.all %}
-                                            <option value="{{ variant.color }}">{{ variant.color }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
+                                <div class="row">
+                                    <div class="form-group col-md-6">
+                                        <label for="colorSelect{{ product.id }}">Color</label>
+                                        <select id="colorSelect{{ product.id }}" name="color" class="form-control">
+                                            {% for variant in product.variants.all %}
+                                                <option value="{{ variant.color }}">{{ variant.color }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
 
-                                <!-- Size Dropdown -->
-                                <div class="form-group">
-                                    <label for="sizeSelect{{ product.id }}">Size</label>
-                                    <select id="sizeSelect{{ product.id }}" name="size" class="form-control">
-                                        {% for variant in product.variants.all %}
-                                            <option value="{{ variant.size }}">{{ variant.size }}</option>
-                                        {% endfor %}
-                                    </select>
+                                    <div class="form-group col-md-6">
+                                        <label for="sizeSelect{{ product.id }}">Size</label>
+                                        <select id="sizeSelect{{ product.id }}" name="size" class="form-control">
+                                            {% for variant in product.variants.all %}
+                                                <option value="{{ variant.size }}">{{ variant.size }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
                                 </div>
 
                                 <!-- Show buttons based on user role -->
@@ -143,6 +135,9 @@
                                     <a href="#" class="btn btn-secondary">Gift Item</a>
                                     <a href="#" class="btn btn-warning">Add to Cart</a>
                                 </div>
+
+                                <!-- Vendor Details -->
+                                <h5>Store: <a href="{% url 'vendor_products' product.vendor.id %}">{{ product.vendor.vendor_profile.company_name }}</a></h5>
                             </form>
                         </div>
                     </div>

@@ -262,3 +262,37 @@ body.theme-light .close {
     background-color: #343a40; /* Dark background */
     color: #ffffff; /* Light text */
 }
+
+.form-group {
+    margin-right: 15px; /* Adjust spacing between the dropdowns */
+}
+
+/* Reduce space between product cards in mobile view */
+@media (max-width: 768px) {
+    .card.mb-2.mt-0 {
+        margin-bottom: 10px; /* Reduce bottom margin */
+        margin-top: 5px;     /* Reduce top margin */
+    }
+
+    .card-body {
+        padding: 10px; /* Reduce padding in card body */
+    }
+
+    /* Adjust the modal size for mobile view */
+    .modal-dialog.modal-lg {
+        max-width: 90%; /* Reduce modal width */
+        margin: 10px auto; /* Ensure proper margin */
+    }
+
+    /* Adjust carousel height for mobile */
+    .product-image {
+        height: 180px; /* Adjust the image height */
+    }
+
+    /* Adjust modal image height for mobile */
+    .product-image2 {
+        height: 250px; /* Adjust the modal image height */
+    }
+}
+
+

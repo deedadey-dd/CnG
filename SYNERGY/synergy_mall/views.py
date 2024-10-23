@@ -365,6 +365,8 @@ def distribute_surplus(wishlist, surplus):
 
 
 # ########## PRODUCT VIEWS ##########
+
+
 def search_product(request):
     """
     Search products and their variants based on query terms.
@@ -372,6 +374,7 @@ def search_product(request):
     """
     query = request.GET.get('q', '').strip()  # Get search terms from query parameter
     products = Product.objects.none()  # Default empty queryset
+    wishlists = Wishlist.objects.not_expired().filter(user=request.user) if request.user.is_authenticated else []
 
     if query:
         search_terms = query.split()
@@ -380,20 +383,32 @@ def search_product(request):
         description_q = Q()
         other_q = Q()
 
+        # Build search conditions for each term
         for term in search_terms:
             title_q |= Q(name__icontains=term)
             description_q |= Q(description__icontains=term)
-            other_q |= Q(category__name__icontains=term) | Q(tags__name__icontains=term) | Q(variants__color__icontains=term) | Q(variants__size__icontains=term)
+            other_q |= (
+                Q(category__name__icontains=term) |
+                Q(tags__name__icontains=term) |
+                Q(variants__color__icontains=term) |
+                Q(variants__size__icontains=term)
+            )
 
+        # Filter the products with relevance-based annotation
         products = Product.objects.filter(
             title_q | description_q | other_q
         ).distinct().annotate(
-            relevance=Count('name', filter=title_q) * 3 + Count('description', filter=description_q) * 2 + Count('category', filter=other_q)
+            relevance=(
+                Count('name', filter=title_q) * 3 +
+                Count('description', filter=description_q) * 2 +
+                Count('category', filter=other_q)
+            )
         ).order_by('-relevance', 'name')
 
     context = {
         'products': products,
         'query': query,
+        'wishlists': wishlists,
     }
     return render(request, 'synergy_mall/search_results.html', context)
 
@@ -415,8 +430,11 @@ def add_product(request):
                 ProductImage.objects.create(product=product, image=image)
 
             # Handle product variants (colors and sizes)
-            colors = product_form.cleaned_data['colors']  # This will be a list of colors (or empty)
-            sizes = product_form.cleaned_data['sizes']  # This will be a list of sizes (or empty)
+            # colors = product_form.cleaned_data['colors']  # This will be a list of colors (or empty)
+            # sizes = product_form.cleaned_data['sizes']  # This will be a list of sizes (or empty)
+            colors = request.POST.getlist('colors')
+            sizes = request.POST.getlist('sizes')
+            print(colors)
 
             if colors or sizes:  # Create variants only if colors or sizes are provided
                 for color in colors or [None]:  # If no colors, use None
@@ -843,3 +861,4 @@ def add_to_cart(request, product_id):
     # cart.add(variant=variant, quantity=1)
 
     return redirect('view_cart')
+

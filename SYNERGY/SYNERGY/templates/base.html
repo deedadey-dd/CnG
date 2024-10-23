@@ -60,6 +60,14 @@
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'my_wishlists' %}">My Wishlists</a>
                         </li>
+
+                        <!-- Display User's Coin Balance for Regular Users -->
+                        <li class="nav-item">
+                            <span class="nav-link">
+                                Coins: <strong>{{ user.coin_account.total_coins|default:"0.00" }}</strong>
+                            </span>
+                        </li>
+
                         <li class="nav-item">
                             <span class="nav-link">Cash: GH₵ {{ user.cash|floatformat:2 }}</span>
                         </li>
