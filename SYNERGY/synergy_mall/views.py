@@ -13,6 +13,8 @@ from .models import Product, Wishlist, WishlistItem, Cart, Wishlist, Contributio
     Category
 # from django.contrib.auth.models import User
 from users.models import User
+
+from .payment_functions import initialize_payment
 from .wishlist import WishlistService
 from django.db.models import Q, Count
 from django.utils import timezone
@@ -34,6 +36,20 @@ def get_paginated_products(request, page_number=1, per_page=12):
     products = Product.objects.filter(is_active=True, available=True)
     paginator = Paginator(products, per_page)
     return paginator.get_page(page_number)
+
+
+def start_payment(request):
+    email = "customer@example.com"
+    amount_in_ghc = 1000
+    amount_in_pesewas = amount_in_ghc * 100  # Convert to kobo
+
+    payment_url = initialize_payment(email, amount_in_pesewas)
+    if "https" in payment_url:
+        # Redirect the user to the payment page
+        return redirect(payment_url)
+    else:
+        # Handle error
+        return HttpResponse(payment_url)
 
 
 # Open/Closed Principle: Extendable logic for actions based on login state.
