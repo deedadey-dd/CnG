@@ -1,20 +1,22 @@
 import json
-
+import os
 import openpyxl
 import pandas as pd
 from decimal import Decimal
+import requests
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.contrib import messages
-from .models import Product, Wishlist, WishlistItem, Cart, Wishlist, Contribution, ProductImage, Tag, ProductVariant, \
+from .models import Product, WishlistItem, Cart, Wishlist, Contribution, ProductImage, Tag, ProductVariant, \
     Category
 # from django.contrib.auth.models import User
 from users.models import User
-
 from .payment_functions import initialize_payment
+from dotenv import load_dotenv
 from .wishlist import WishlistService
 from django.db.models import Q, Count
 from django.utils import timezone
@@ -41,7 +43,7 @@ def get_paginated_products(request, page_number=1, per_page=12):
 def start_payment(request):
     email = "customer@example.com"
     amount_in_ghc = 1000
-    amount_in_pesewas = amount_in_ghc * 100  # Convert to kobo
+    amount_in_pesewas = amount_in_ghc * 100  # Convert to pesewas
 
     payment_url = initialize_payment(email, amount_in_pesewas)
     if "https" in payment_url:
@@ -50,6 +52,71 @@ def start_payment(request):
     else:
         # Handle error
         return HttpResponse(payment_url)
+
+
+@csrf_exempt
+def paystack_webhook(request):
+    if request.method == 'POST':
+        # Get the request body and decode it
+        event = json.loads(request.body.decode('utf-8'))
+
+        # Retrieve the event type and details
+        event_type = event.get('event', None)
+        data = event.get('data', {})
+
+        # Paystack sends different events, we are only interested in 'charge.success'
+        if event_type == 'charge.success':
+            # Verify the event by contacting Paystack's API
+            payment_reference = data.get('reference')
+
+            if payment_reference:
+                verified = verify_paystack_payment(payment_reference)
+
+                if verified:
+                    # Retrieve contribution data from session (you may need to store it persistently in some cases)
+                    contribution_data = request.session.get('contribution_data', {})
+                    amount = Decimal(contribution_data.get('amount'))
+                    wishlist_id = contribution_data.get('wishlist_id')
+                    contributor_name = contribution_data.get('contributor_name')
+                    contact_info = contribution_data.get('contact_info')
+                    message = contribution_data.get('message')
+                    item_id = contribution_data.get('item_id')
+
+                    wishlist = Wishlist.objects.get(id=wishlist_id)
+                    if item_id:
+                        # Specific item contribution
+                        item = WishlistItem.objects.get(id=item_id, wishlist=wishlist)
+                        handle_item_contribution(item, amount, contributor_name, contact_info, message)
+                    else:
+                        # General contribution
+                        handle_general_contribution(wishlist, amount, contributor_name, contact_info, message)
+
+                    # Clear session data after successful contribution
+                    del request.session['contribution_data']
+
+                    return JsonResponse({'status': 'success', 'message': 'Payment verified and contribution logged'},
+                                        status=200)
+                else:
+                    return JsonResponse({'status': 'error', 'message': 'Payment verification failed'}, status=400)
+
+        return JsonResponse({'status': 'success'}, status=200)
+
+    return JsonResponse({'status': 'invalid request'}, status=400)
+
+
+def verify_paystack_payment(reference):
+    """Verify the payment reference with Paystack API to confirm payment."""
+    url = f'https://api.paystack.co/transaction/verify/{reference}'
+    headers = {
+        "Authorization": f"Bearer {os.getenv('PAY_SECRET')}"
+    }
+
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        response_data = response.json()
+        return response_data.get('status') and response_data['data']['status'] == 'success'
+
+    return False
 
 
 # Open/Closed Principle: Extendable logic for actions based on login state.
@@ -271,7 +338,6 @@ def remove_wishlist_item(request, wishlist_id, item_id):
 
 # ########## CONTRIBUTION VIEWS ##########
 
-
 def contribute_to_wishlist(request, wishlist_id):
     wishlist = get_object_or_404(Wishlist, id=wishlist_id)
 
@@ -290,17 +356,60 @@ def contribute_to_wishlist(request, wishlist_id):
     message = request.POST.get('message', '')  # Optional message
     item_id = request.POST.get('item_id')  # This will be null for general contributions
 
-    if item_id:
-        # Specific item contribution
-        item = get_object_or_404(WishlistItem, id=item_id, wishlist=wishlist)
-        handle_item_contribution(item, amount, contributor_name, contact_info, message)
-        messages.success(request, f"Successfully contributed ${amount} to {item.product.name}.")
-    else:
-        # General contribution, apply to the first item in the wishlist that needs funds
-        handle_general_contribution(wishlist, amount, contributor_name, contact_info, message)
-        messages.success(request, f"Successfully contributed ${amount} to {wishlist.title}.")
+    # Store contribution details in session to be used after payment confirmation
+    request.session['contribution_data'] = {
+        'wishlist_id': wishlist.id,
+        'contributor_name': contributor_name,
+        'contact_info': contact_info,
+        'message': message,
+        'amount': str(amount),
+        'item_id': item_id,  # Optional: Can be null for general contributions
+    }
 
-    return redirect('view_wishlist', wishlist_id=wishlist.id)
+    # Start payment
+    email = contact_info  # Assuming the contact info is an email
+    amount_in_pesewas = int(amount * 100)  # Convert to pesewas
+
+    payment_url = initialize_payment(email, amount_in_pesewas)
+    if "https" in payment_url:
+        # Redirect the user to the payment page
+        return redirect(payment_url)
+    else:
+        # Handle error (payment initialization failed)
+        messages.error(request, "Failed to initialize payment. Please try again.")
+        return redirect('view_wishlist', wishlist_id=wishlist_id)
+
+#### This is before payment integration
+
+# def contribute_to_wishlist(request, wishlist_id):
+#     wishlist = get_object_or_404(Wishlist, id=wishlist_id)
+#
+#     try:
+#         amount = Decimal(request.POST.get('amount'))  # Ensure it's passed as Decimal
+#     except (TypeError, ValueError):
+#         messages.error(request, "Invalid contribution amount.")
+#         return redirect('view_wishlist', wishlist_id=wishlist_id)
+#
+#     if amount <= 0:
+#         messages.error(request, "Contribution amount must be greater than zero.")
+#         return redirect('view_wishlist', wishlist_id=wishlist_id)
+#
+#     contributor_name = request.POST.get('contributor_name')
+#     contact_info = request.POST.get('contact_info')
+#     message = request.POST.get('message', '')  # Optional message
+#     item_id = request.POST.get('item_id')  # This will be null for general contributions
+#
+#     if item_id:
+#         # Specific item contribution
+#         item = get_object_or_404(WishlistItem, id=item_id, wishlist=wishlist)
+#         handle_item_contribution(item, amount, contributor_name, contact_info, message)
+#         messages.success(request, f"Successfully contributed ${amount} to {item.product.name}.")
+#     else:
+#         # General contribution, apply to the first item in the wishlist that needs funds
+#         handle_general_contribution(wishlist, amount, contributor_name, contact_info, message)
+#         messages.success(request, f"Successfully contributed ${amount} to {wishlist.title}.")
+#
+#     return redirect('view_wishlist', wishlist_id=wishlist.id)
 
 
 def handle_item_contribution(item, amount, contributor_name, contact_info, message):

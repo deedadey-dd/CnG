@@ -1,10 +1,10 @@
+import os
 import requests
 import json
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
+
 
 # Define your Paystack secret key
-PAYSTACK_SECRET_KEY = 'YOUR_SECRET_KEY'
+PAYSTACK_SECRET_KEY = os.getenv('PAY_SECRET')
 
 # Paystack API endpoint for initializing a transaction
 PAYSTACK_INIT_TRANSACTION_URL = 'https://api.paystack.co/transaction/initialize'
@@ -45,49 +45,3 @@ def initialize_payment(email, amount):
     except requests.RequestException as e:
         return f"An error occurred: {str(e)}"
 
-
-@csrf_exempt
-def paystack_webhook(request):
-    if request.method == 'POST':
-        # Get the request body and decode it
-        event = json.loads(request.body.decode('utf-8'))
-
-        # Retrieve the event type and details
-        event_type = event.get('event', None)
-        data = event.get('data', {})
-
-        # Paystack sends different events, we are only interested in 'charge.success'
-        if event_type == 'charge.success':
-            # Verify the event by contacting Paystack's API
-            payment_reference = data.get('reference')
-
-            if payment_reference:
-                verified = verify_paystack_payment(payment_reference)
-
-                if verified:
-                    # Mark payment as successful in your database (implement this)
-                    return JsonResponse({'status': 'success', 'message': 'Payment verified'}, status=200)
-                else:
-                    return JsonResponse({'status': 'error', 'message': 'Payment verification failed'}, status=400)
-
-        # Return a generic response for unsupported event types
-        return JsonResponse({'status': 'success'}, status=200)
-
-    return JsonResponse({'status': 'invalid request'}, status=400)
-
-
-def verify_paystack_payment(reference):
-    """
-    Verify the payment reference with Paystack API to confirm payment.
-    """
-    url = f'https://api.paystack.co/transaction/verify/{reference}'
-    headers = {
-        "Authorization": f"Bearer {PAYSTACK_SECRET_KEY}"
-    }
-
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        response_data = response.json()
-        return response_data.get('status') and response_data['data']['status'] == 'success'
-
-    return False
