@@ -35,9 +35,9 @@
 
                         <!-- Contributor's Contact Info -->
                         <div class="form-group">
-                            <label for="contact_info">Phone Number or Email</label>
+                            <label for="contact_info">Email</label>
                             <input type="text" id="contact_info" name="contact_info" required class="form-control"
-                            value="{% if user.is_authenticated %}{{ user_info.phone_number|default:'' }}{% endif %}">
+                            value="{% if user.is_authenticated %}{{ user_info.email|default:'' }}{% endif %}">
                         </div>
 
                         <!-- Contribution Message -->

@@ -250,7 +250,7 @@ def view_wishlist(request, wishlist_id):
             'first_name': request.user.first_name,
             'surname': request.user.surname,
             'other_names': request.user.other_names,
-            'phone_number': request.user.phone_number,
+            'email': request.user.email,
         }
 
     context = {

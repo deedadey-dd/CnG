@@ -17,7 +17,7 @@ def initialize_payment(email, amount):
     :param amount: Transaction amount in kobo (for NGN, multiply Naira by 100)
     """
     headers = {
-        "Authorization": f"Bearer {PAYSTACK_SECRET_KEY}",
+        "Authorization": f"Bearer {os.getenv('PAY_SECRET')}",
         "Content-Type": "application/json"
     }
 
