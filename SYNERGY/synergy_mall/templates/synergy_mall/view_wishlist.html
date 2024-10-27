@@ -4,13 +4,17 @@
 {% block content %}
 <div class="container">
     <h2>{{ wishlist.title }}</h2>
-    <p>{{ wishlist.description }}</p>
+    <i>{{ wishlist.description }}</i>
     <p>Privacy: {{ wishlist.get_privacy_display }}</p>
 
     <!-- Contribute Button to trigger the modal -->
+    {% if user == wishlist.user %}
+    <p>Drag Items to Prioritize them</p>
+    {% else %}
     <button type="button" class="btn btn-success" data-toggle="modal" data-target="#contributeModal">
         Contribute
     </button>
+    {% endif %}
 
     <!-- Contribution Form Modal -->
     <div class="modal fade" id="contributeModal" tabindex="-1" role="dialog" aria-labelledby="contributeModalLabel" aria-hidden="true">

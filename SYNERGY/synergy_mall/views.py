@@ -1,3 +1,4 @@
+from django.conf import settings
 import json
 import os
 import openpyxl
@@ -54,6 +55,7 @@ def start_payment(request):
         return HttpResponse(payment_url)
 
 
+# ########## CONFIRM TRANSACTIONS AND LOG THEM ##############
 @csrf_exempt
 def paystack_webhook(request):
     if request.method == 'POST':
@@ -311,7 +313,6 @@ def all_wishlists(request):
     context = {
         'page_obj': page_obj
     }
-
     return render(request, 'synergy_mall/all_wishlists.html', context)
 
 
@@ -338,11 +339,61 @@ def remove_wishlist_item(request, wishlist_id, item_id):
 
 # ########## CONTRIBUTION VIEWS ##########
 
+# def contribute_to_wishlist(request, wishlist_id):
+#     """ This is contribution through paystack
+#         Since payment confirmation is unavailable in dev mode
+#         This will be disabled till w ego live on paystack"""
+#
+#     wishlist = get_object_or_404(Wishlist, id=wishlist_id)
+#
+#     try:
+#         amount = Decimal(request.POST.get('amount'))  # Ensure it's passed as Decimal
+#     except (TypeError, ValueError):
+#         messages.error(request, "Invalid contribution amount.")
+#         return redirect('view_wishlist', wishlist_id=wishlist_id)
+#
+#     if amount <= 0:
+#         messages.error(request, "Contribution amount must be greater than zero.")
+#         return redirect('view_wishlist', wishlist_id=wishlist_id)
+#
+#     contributor_name = request.POST.get('contributor_name')
+#     contact_info = request.POST.get('contact_info')
+#     message = request.POST.get('message', '')  # Optional message
+#     item_id = request.POST.get('item_id')  # This will be null for general contributions
+#
+#     # Store contribution details in session to be used after payment confirmation
+#     request.session['contribution_data'] = {
+#         'wishlist_id': wishlist.id,
+#         'contributor_name': contributor_name,
+#         'contact_info': contact_info,
+#         'message': message,
+#         'amount': str(amount),
+#         'item_id': item_id,  # Optional: Can be null for general contributions
+#     }
+#
+#     # Start payment
+#     email = contact_info  # Assuming the contact info is an email
+#     amount_in_pesewas = int(amount * 100)  # Convert to pesewas
+#
+#     payment_url = initialize_payment(email, amount_in_pesewas)
+#     if "https" in payment_url:
+#         # Redirect the user to the payment page
+#         return redirect(payment_url)
+#     else:
+#         # Handle error (payment initialization failed)
+#         messages.error(request, "Failed to initialize payment. Please try again.")
+#         return redirect('view_wishlist', wishlist_id=wishlist_id)
+
+### This is before payment integration
+
 def contribute_to_wishlist(request, wishlist_id):
+    """ This contribution combines both development environment and produciton
+        by checking the ENV_MODE in settings.py"""
     wishlist = get_object_or_404(Wishlist, id=wishlist_id)
 
     try:
-        amount = Decimal(request.POST.get('amount'))  # Ensure it's passed as Decimal
+        amount = Decimal(request.POST.get('amount'))
+        print(f"Amount to contribute: {amount}")
     except (TypeError, ValueError):
         messages.error(request, "Invalid contribution amount.")
         return redirect('view_wishlist', wishlist_id=wishlist_id)
@@ -353,33 +404,36 @@ def contribute_to_wishlist(request, wishlist_id):
 
     contributor_name = request.POST.get('contributor_name')
     contact_info = request.POST.get('contact_info')
-    message = request.POST.get('message', '')  # Optional message
-    item_id = request.POST.get('item_id')  # This will be null for general contributions
+    message = request.POST.get('message', '')
+    item_id = request.POST.get('item_id')
 
-    # Store contribution details in session to be used after payment confirmation
-    request.session['contribution_data'] = {
-        'wishlist_id': wishlist.id,
-        'contributor_name': contributor_name,
-        'contact_info': contact_info,
-        'message': message,
-        'amount': str(amount),
-        'item_id': item_id,  # Optional: Can be null for general contributions
-    }
+    if settings.ENV_MODE == 'development':
+        # Directly log the contribution in development mode
 
-    # Start payment
-    email = contact_info  # Assuming the contact info is an email
-    amount_in_pesewas = int(amount * 100)  # Convert to pesewas
+        # Create the contribution record before applying the amount to items
 
-    payment_url = initialize_payment(email, amount_in_pesewas)
-    if "https" in payment_url:
-        # Redirect the user to the payment page
-        return redirect(payment_url)
+        if item_id:
+            item = get_object_or_404(WishlistItem, id=item_id, wishlist=wishlist)
+            handle_item_contribution(item, amount, contributor_name, contact_info, message)
+            messages.success(request, f"Successfully contributed ${amount} to {item.product.name}.")
+        else:
+            handle_general_contribution(wishlist, amount, contributor_name, contact_info, message)
+            messages.success(request, f"Successfully contributed ${amount} to {wishlist.title}.")
+
+        return redirect('view_wishlist', wishlist_id=wishlist.id)
+
     else:
-        # Handle error (payment initialization failed)
-        messages.error(request, "Failed to initialize payment. Please try again.")
-        return redirect('view_wishlist', wishlist_id=wishlist_id)
+        # Initialize payment in production mode
+        email = contact_info
+        amount_in_pesewas = int(amount * 100)
 
-#### This is before payment integration
+        payment_url = initialize_payment(email, amount_in_pesewas)
+        if "https" in payment_url:
+            return redirect(payment_url)
+        else:
+            messages.error(request, "Failed to initialize payment. Please try again.")
+            return redirect('view_wishlist', wishlist_id=wishlist_id)
+
 
 # def contribute_to_wishlist(request, wishlist_id):
 #     wishlist = get_object_or_404(Wishlist, id=wishlist_id)
@@ -422,8 +476,8 @@ def handle_item_contribution(item, amount, contributor_name, contact_info, messa
     else:
         surplus = amount - remaining
         item.amount_paid += remaining
-        item.save()
         distribute_surplus(item.wishlist, surplus)
+    item.save()
 
     # Log the contribution with additional details
     Contribution.objects.create(

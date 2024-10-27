@@ -168,3 +168,6 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv('EMAIL_USER')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_PASS')
 DEFAULT_FROM_EMAIL = os.getenv('EMAIL_USER')
+
+# Determine the environment
+ENV_MODE = os.getenv('ENV_MODE', 'development')  # 'production' for production mode
