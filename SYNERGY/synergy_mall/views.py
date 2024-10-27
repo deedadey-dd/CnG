@@ -13,7 +13,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.contrib import messages
 from .models import Product, WishlistItem, Cart, Wishlist, Contribution, ProductImage, Tag, ProductVariant, \
-    Category
+    Category, Gift
 # from django.contrib.auth.models import User
 from users.models import User
 from .payment_functions import initialize_payment
@@ -22,7 +22,7 @@ from .wishlist import WishlistService
 from django.db.models import Q, Count
 from django.utils import timezone
 from .forms import ProductForm, InventoryProductForm, FeaturedAndAvailableForm, CategoryForm, BulkCategoryUploadForm, \
-    BulkProductUploadForm, ProductVariantForm
+    BulkProductUploadForm, ProductVariantForm, GiftPaymentForm
 
 
 # Helper function to check if user is vendor
@@ -398,8 +398,8 @@ def contribute_to_wishlist(request, wishlist_id):
         messages.error(request, "Invalid contribution amount.")
         return redirect('view_wishlist', wishlist_id=wishlist_id)
 
-    if amount <= 0:
-        messages.error(request, "Contribution amount must be greater than zero.")
+    if amount <= 10:
+        messages.error(request, "Contribution amount must be 10 or more.")
         return redirect('view_wishlist', wishlist_id=wishlist_id)
 
     contributor_name = request.POST.get('contributor_name')
@@ -409,8 +409,6 @@ def contribute_to_wishlist(request, wishlist_id):
 
     if settings.ENV_MODE == 'development':
         # Directly log the contribution in development mode
-
-        # Create the contribution record before applying the amount to items
 
         if item_id:
             item = get_object_or_404(WishlistItem, id=item_id, wishlist=wishlist)
@@ -468,16 +466,6 @@ def contribute_to_wishlist(request, wishlist_id):
 
 def handle_item_contribution(item, amount, contributor_name, contact_info, message):
     """Handle specific item contribution and handle surplus if any."""
-    remaining = item.amount_remaining()
-
-    if amount <= remaining:
-        item.amount_paid += amount
-        item.save()
-    else:
-        surplus = amount - remaining
-        item.amount_paid += remaining
-        distribute_surplus(item.wishlist, surplus)
-    item.save()
 
     # Log the contribution with additional details
     Contribution.objects.create(
@@ -490,9 +478,30 @@ def handle_item_contribution(item, amount, contributor_name, contact_info, messa
         date=timezone.now()
     )
 
+    remaining = item.amount_remaining()
+
+    if amount <= remaining:
+        item.amount_paid += amount
+        item.save()
+    else:
+        surplus = amount - remaining
+        item.amount_paid += remaining
+        distribute_surplus(item.wishlist, surplus)
+    item.save()
+
 
 def handle_general_contribution(wishlist, amount, contributor_name, contact_info, message):
     """Handle general contributions and apply to items in the preferred order."""
+    # Log the contribution with additional details
+    Contribution.objects.create(
+        wishlist=wishlist,
+        contributor_name=contributor_name,
+        contact_info=contact_info,
+        message=message,
+        amount=amount,
+        date=timezone.now()
+    )
+
     items = wishlist.ordered_items()
     for item in items:
         remaining = item.amount_remaining()
@@ -510,16 +519,6 @@ def handle_general_contribution(wishlist, amount, contributor_name, contact_info
     if amount > 0:
         wishlist.user.cash += amount
         wishlist.user.save()
-
-    # Log the contribution with additional details
-    Contribution.objects.create(
-        wishlist=wishlist,
-        contributor_name=contributor_name,
-        contact_info=contact_info,
-        message=message,
-        amount=amount,
-        date=timezone.now()
-    )
 
 
 def distribute_surplus(wishlist, surplus):
@@ -1041,3 +1040,69 @@ def add_to_cart(request, product_id):
 
     return redirect('view_cart')
 
+
+# ############# GIFTING AN ITEM ##############
+
+
+@csrf_exempt
+def fetch_receiver_wishlists(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+        receiver_details = data.get('receiver_details')
+
+        # Search for receiver by email, phone, or username
+        try:
+            receiver = User.objects.get(email=receiver_details) or User.objects.get(phone_number=receiver_details) or User.objects.get(username=receiver_details)
+            wishlists = Wishlist.objects.filter(user=receiver).values('id', 'title')
+            return JsonResponse({
+                'success': True,
+                'receiver_id': receiver.id,
+                'wishlists': list(wishlists)
+            })
+        except User.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'User not found'}, status=404)
+    return JsonResponse({'success': False, 'message': 'Invalid request'}, status=400)
+
+
+def process_gift_payment(request, product_id):
+    product = get_object_or_404(Product, id=product_id)
+
+    if request.method == 'POST':
+        form = GiftPaymentForm(request.POST)
+        receiver_id = request.POST.get('receiver_id')
+        wishlist_id = request.POST.get('wishlist_id')
+
+        if form.is_valid():
+            giver_contact = form.cleaned_data['giver_contact']
+            message_to_receiver = form.cleaned_data['message_to_receiver']
+            receiver = get_object_or_404(User, id=receiver_id)
+            wishlist = Wishlist.objects.filter(id=wishlist_id, user=receiver).first()
+
+            if wishlist:
+                # Ensure the gift product is fully paid here (payment processing omitted)
+
+                # Record the gift in the Gift model
+                Gift.objects.create(
+                    giver=request.user,
+                    receiver=receiver,
+                    product=product,
+                    wishlist=wishlist,
+                    giver_contact=giver_contact,
+                    message_to_receiver=message_to_receiver,
+                )
+
+                WishlistItem.objects.create(
+                    wishlist=wishlist,
+                    product=product,
+                    giver_contact=giver_contact,
+                    message=message_to_receiver
+                )
+
+                messages.success(request, "Gift sent successfully!")
+            else:
+                messages.error(request, "Invalid Wishlist selection.")
+            return redirect('index')  # Or a success confirmation page
+    else:
+        form = GiftPaymentForm()
+
+    return render(request, 'synergy_mall/gift_payment.html', {'form': form, 'product': product})

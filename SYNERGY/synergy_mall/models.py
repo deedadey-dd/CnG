@@ -257,3 +257,16 @@ class Contribution(models.Model):
 
     def __str__(self):
         return f"Contribution of ${self.amount} by {self.contributor_name} to {self.wishlist.title}"
+
+
+class Gift(models.Model):
+    giver = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='gifts_sent')
+    receiver = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='gifts_received')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    wishlist = models.ForeignKey(Wishlist, on_delete=models.CASCADE)
+    giver_contact = models.CharField(max_length=255)
+    message_to_receiver = models.TextField(blank=True, null=True)
+    date_sent = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Gift of {self.product.name} from {self.giver} to {self.receiver}"

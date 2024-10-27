@@ -1,5 +1,5 @@
 from django import forms
-from .models import Product, Category, Wishlist, WishlistItem, CustomItem, ProductImage, ProductVariant
+from .models import Product, Category, Wishlist, WishlistItem, CustomItem, ProductImage, ProductVariant, Gift
 
 
 class MultipleFileInput(forms.ClearableFileInput):
@@ -197,3 +197,12 @@ class CustomItemForm(forms.ModelForm):
     class Meta:
         model = CustomItem
         fields = ['name', 'description', 'price']
+
+
+class GiftPaymentForm(forms.ModelForm):
+    giver_contact = forms.CharField(max_length=255, required=True, label="Your Contact Info (Email or Phone)")
+    message_to_receiver = forms.CharField(widget=forms.Textarea, required=False, label="Message to Receiver", max_length=200)
+
+    class Meta:
+        model = Gift
+        fields = ['giver_contact', 'message_to_receiver']

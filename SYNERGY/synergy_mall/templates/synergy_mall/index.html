@@ -132,7 +132,9 @@
                                 <!-- Add to Cart and Purchase Options -->
                                 <div class="mt-3">
                                     <a href="#" class="btn btn-primary">Buy Item</a>
-                                    <a href="#" class="btn btn-secondary">Gift Item</a>
+                                    <button type="button" class="btn btn-secondary" data-toggle="modal" data-target="#giftItemModal{{ product.id }}">
+                                        Gift Item
+                                    </button>
                                     <a href="#" class="btn btn-warning">Add to Cart</a>
                                 </div>
 
@@ -146,6 +148,7 @@
         </div>
         {% endfor %}
     </div>
+
 
     <!-- Pagination -->
     <nav aria-label="Page navigation">
@@ -195,6 +198,45 @@
             console.error("Error adding to wishlist:", error);
         });
     }
+
+    function fetchReceiverWishlists(productId) {
+    const receiverDetails = document.getElementById(`receiverDetails${productId}`).value;
+    const csrfToken = "{{ csrf_token }}";
+
+    // AJAX call to fetch wishlists based on receiver details
+    fetch("{% url 'fetch_receiver_wishlists' %}", {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": csrfToken,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ receiver_details: receiverDetails })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Populate the wishlist dropdown
+            const wishlistSelect = document.getElementById(`receiverWishlist${productId}`);
+            wishlistSelect.innerHTML = '<option value="general">General Wishlist</option>';
+            data.wishlists.forEach(wishlist => {
+                const option = document.createElement("option");
+                option.value = wishlist.id;
+                option.text = wishlist.title;
+                wishlistSelect.appendChild(option);
+            });
+
+            // Set receiver ID and toggle to payment form
+            document.getElementById(`receiverId${productId}`).value = data.receiver_id;
+            document.getElementById("step1").style.display = "none";
+            document.getElementById("step2").style.display = "block";
+        } else {
+            alert("User not found.");
+        }
+    })
+    .catch(error => {
+        console.error("Error fetching wishlists:", error);
+    });
+}
 </script>
 
 {% endblock %}
