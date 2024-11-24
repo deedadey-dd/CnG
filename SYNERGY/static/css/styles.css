@@ -62,6 +62,15 @@ body.theme-light .dropdown-item:focus {
     color: #232424;
 }
 
+#themeToggle img {
+    transition: transform 0.2s ease;
+}
+
+#themeToggle img:hover {
+    transform: rotate(20deg);
+}
+
+
 /* Cards */
 body.theme-light .card {
     background-color: #ffffff;
@@ -261,6 +270,19 @@ body.theme-light .close {
 .dark-mode .list-group {
     background-color: #343a40; /* Dark background */
     color: #ffffff; /* Light text */
+}
+
+/* Dark mode for list-group items */
+body.theme-dark .list-group-item {
+    background-color: #343a40; /* Matches the dark mode background */
+    color: #ffffff; /* Ensure text is white */
+    border: 1px solid #495057; /* Optional: subtle border */
+}
+
+/* Light mode for list-group items (if needed for clarity) */
+body.theme-light .list-group-item {
+    background-color: #ffffff; /* Matches the light mode background */
+    color: #232424; /* Ensure text is dark */
 }
 
 .form-group {

@@ -84,15 +84,6 @@
                             <a class="dropdown-item" href="{% url 'profile' %}">Profile</a>
                             <div class="dropdown-divider"></div>
                             <a class="dropdown-item" href="{% url 'logout' %}">Logout</a>
-                            <div class="dropdown-divider"></div>
-                            <div class="dropdown-submenu">
-                                <a class="dropdown-item dropdown-toggle" href="#">Theme</a>
-                                <div class="dropdown-menu">
-                                    <a class="dropdown-item" href="#" onclick="setTheme('light')">Light</a>
-                                    <a class="dropdown-item" href="#" onclick="setTheme('dark')">Dark</a>
-                                    <a class="dropdown-item" href="#" onclick="setTheme('device')">Device Default</a>
-                                </div>
-                            </div>
                         </div>
                     </li>
                 {% else %}
@@ -103,6 +94,12 @@
                         <a class="nav-link" href="{% url 'custom_login' %}">Login</a>
                     </li>
                 {% endif %}
+                <!-- Theme Toggle Button -->
+                <li class="nav-item">
+                    <button class="btn btn-link nav-link p-0" id="themeToggle" onclick="toggleTheme()" title="Toggle Theme">
+                        <img id="themeIcon" src="{% static 'images/moon.svg' %}" alt="Theme Toggle" width="24" height="24">
+                    </button>
+                </li>
             </ul>
         </div>
     </nav>
@@ -182,83 +179,91 @@
 
         {% endblock %}
     </div>
+
+
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 
     <script>
-        function setTheme(theme) {
-            if (theme === 'device') {
-                localStorage.removeItem('theme');
-                document.body.className = 'theme-' + (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', () => {
+        // Load saved theme or set based on system preference
+        const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.body.className = `theme-${savedTheme}`;
+        updateNavbarTheme();
+        updateThemeIcon(savedTheme);
+    });
+
+    function setTheme(theme) {
+        if (theme === 'device') {
+            localStorage.removeItem('theme');
+            document.body.className = 'theme-' + (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        } else {
+            localStorage.setItem('theme', theme);
+            document.body.className = 'theme-' + theme;
+        }
+        updateNavbarTheme();
+        updateThemeIcon(theme);
+    }
+
+    function toggleTheme() {
+        const currentTheme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        document.body.className = `theme-${newTheme}`;
+        localStorage.setItem('theme', newTheme);
+        updateNavbarTheme();
+        updateThemeIcon(newTheme);
+    }
+
+    function updateNavbarTheme() {
+        const theme = document.body.className;
+        const navbar = document.querySelector('.navbar');
+        if (theme === 'theme-dark') {
+            navbar.classList.add('navbar-dark', 'bg-dark');
+            navbar.classList.remove('navbar-light', 'bg-light');
+        } else {
+            navbar.classList.add('navbar-light', 'bg-light');
+            navbar.classList.remove('navbar-dark', 'bg-dark');
+        }
+    }
+
+    function updateThemeIcon(theme) {
+        const themeIcon = document.getElementById('themeIcon');
+        const iconPath = theme === 'dark' ? "{% static 'images/sun.svg' %}" : "{% static 'images/moon.svg' %}";
+        themeIcon.src = iconPath;
+        themeIcon.alt = theme === 'dark' ? "Dark Mode" : "Light Mode";
+    }
+
+    // Update modal theme based on body theme
+    function updateModalTheme() {
+        const modals = document.querySelectorAll('.modal-content');
+        modals.forEach(modal => {
+            if (document.body.classList.contains('theme-dark')) {
+                modal.classList.add('theme-dark');
+                modal.classList.remove('theme-light');
             } else {
-                localStorage.setItem('theme', theme);
-                document.body.className = 'theme-' + theme;
+                modal.classList.add('theme-light');
+                modal.classList.remove('theme-dark');
             }
+        });
+    }
+
+    // Listen for system theme changes
+    window.matchMedia('(prefers-color-scheme: dark)').addListener(e => {
+        if (!localStorage.getItem('theme')) {
+            document.body.className = 'theme-' + (e.matches ? 'dark' : 'light');
             updateNavbarTheme();
+            updateThemeIcon(e.matches ? 'dark' : 'light');
         }
+    });
 
-        function updateNavbarTheme() {
-            const theme = document.body.className;
-            const navbar = document.querySelector('.navbar');
-            if (theme === 'theme-dark') {
-                navbar.classList.add('navbar-dark', 'bg-dark');
-                navbar.classList.remove('navbar-light', 'bg-light');
-            } else {
-                navbar.classList.add('navbar-light', 'bg-light');
-                navbar.classList.remove('navbar-dark', 'bg-dark');
-            }
-        }
+    // jQuery for handling dropdown submenu
+    $('.dropdown-submenu .dropdown-toggle').on('click', function(e) {
+        $(this).next('.dropdown-menu').toggle();
+        e.stopPropagation();
+        e.preventDefault();
+    });
+</script>
 
-        document.addEventListener('DOMContentLoaded', () => {
-            const savedTheme = localStorage.getItem('theme');
-            if (savedTheme) {
-                document.body.className = 'theme-' + savedTheme;
-            } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                document.body.className = 'theme-dark';
-            }
-
-            // Update modal themes on load
-            updateModalTheme();
-        });
-
-        // Function to update modal theme based on body theme
-        function updateModalTheme() {
-            const modals = document.querySelectorAll('.modal-content');
-            modals.forEach(modal => {
-                if (document.body.classList.contains('theme-dark')) {
-                    modal.classList.add('theme-dark');
-                    modal.classList.remove('theme-light');
-                } else {
-                    modal.classList.add('theme-light');
-                    modal.classList.remove('theme-dark');
-                }
-            });
-        }
-
-        // Optional: if you're using a theme toggle button
-        function toggleTheme() {
-            const currentTheme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            document.body.className = 'theme-' + newTheme;
-            localStorage.setItem('theme', newTheme);
-            updateModalTheme();  // Update modal theme after switching
-        }
-
-
-        window.matchMedia('(prefers-color-scheme: dark)').addListener(e => {
-            if (!localStorage.getItem('theme')) {
-                document.body.className = 'theme-' + (e.matches ? 'dark' : 'light');
-                updateNavbarTheme();
-            }
-        });
-
-        // jQuery for handling dropdown submenu
-        $('.dropdown-submenu .dropdown-toggle').on('click', function(e) {
-            $(this).next('.dropdown-menu').toggle();
-            e.stopPropagation();
-            e.preventDefault();
-        });
-    </script>
 </body>
 </html>
