@@ -37,6 +37,10 @@
                     <p class="card-title mb-0 mt-0">{{ product.name }}</p>
                     <p class="card-text mb-0 mt-0"><strong>${{ product.price }}</strong></p>
                 </div>
+                <button type="button" class="btn btn-secondary" data-toggle="modal" data-target="#giftItemModal{{ product.id }}">
+                    Gift Item
+                </button>
+
             </div>
         </div>
 
@@ -149,6 +153,55 @@
         {% endfor %}
     </div>
 
+    <!-- Gifting Modal -->
+    <div class="modal fade" id="giftItemModal{{ product.id }}" tabindex="-1" role="dialog" aria-labelledby="giftItemModalLabel{{ product.id }}" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="giftItemModalLabel{{ product.id }}">Gift {{ product.name }}</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <!-- Step 1: Enter Receiver Details -->
+                    <div id="step1">
+                        <form onsubmit="event.preventDefault(); fetchReceiverWishlists({{ product.id }});">
+                            {% csrf_token %}
+                            <div class="form-group">
+                                <label for="receiverDetails{{ product.id }}">Receiver's Email, Phone, or Username</label>
+                                <input type="text" class="form-control" id="receiverDetails{{ product.id }}" required placeholder="Enter receiver's details">
+                            </div>
+                            <button type="submit" class="btn btn-primary">Find Receiver</button>
+                        </form>
+                    </div>
+
+                    <!-- Step Two: Payment Form -->
+                    <div id="step2" style="display: none;">
+                        <form id="giftPaymentForm{{ product.id }}" action="{% url 'process_gift_payment' product.id %}" method="POST">
+                            {% csrf_token %}
+                            <input type="hidden" name="receiver_id" id="receiverId{{ product.id }}">
+                            <input type="hidden" name="wishlist_id" id="receiverWishlist{{ product.id }}">
+
+                            <div class="form-group">
+                                <label for="giverContact{{ product.id }}">Your Contact</label>
+                                <input type="text" id="giverContact{{ product.id }}" name="giver_contact" class="form-control" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="messageToReceiver{{ product.id }}">Message to Receiver</label>
+                                <textarea id="messageToReceiver{{ product.id }}" name="message_to_receiver" class="form-control"></textarea>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">Confirm and Gift</button>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Pagination -->
     <nav aria-label="Page navigation">
@@ -200,43 +253,51 @@
     }
 
     function fetchReceiverWishlists(productId) {
-    const receiverDetails = document.getElementById(`receiverDetails${productId}`).value;
-    const csrfToken = "{{ csrf_token }}";
+        const receiverDetails = document.getElementById(`receiverDetails${productId}`).value;
+        const csrfToken = "{{ csrf_token }}";
 
-    // AJAX call to fetch wishlists based on receiver details
-    fetch("{% url 'fetch_receiver_wishlists' %}", {
-        method: "POST",
-        headers: {
-            "X-CSRFToken": csrfToken,
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ receiver_details: receiverDetails })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Populate the wishlist dropdown
-            const wishlistSelect = document.getElementById(`receiverWishlist${productId}`);
-            wishlistSelect.innerHTML = '<option value="general">General Wishlist</option>';
-            data.wishlists.forEach(wishlist => {
-                const option = document.createElement("option");
-                option.value = wishlist.id;
-                option.text = wishlist.title;
-                wishlistSelect.appendChild(option);
-            });
+        fetch("{% url 'fetch_receiver_wishlists' %}", {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": csrfToken,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ receiver_details: receiverDetails })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Populate the wishlist dropdown
+                const wishlistSelect = document.getElementById(`receiverWishlist${productId}`);
+                wishlistSelect.innerHTML = '<option value="general">General Wishlist</option>';
+                data.wishlists.forEach(wishlist => {
+                    const option = document.createElement("option");
+                    option.value = wishlist.id;
+                    option.text = wishlist.title;
+                    wishlistSelect.appendChild(option);
+                });
 
-            // Set receiver ID and toggle to payment form
-            document.getElementById(`receiverId${productId}`).value = data.receiver_id;
-            document.getElementById("step1").style.display = "none";
-            document.getElementById("step2").style.display = "block";
-        } else {
-            alert("User not found.");
-        }
-    })
-    .catch(error => {
-        console.error("Error fetching wishlists:", error);
-    });
-}
+                // Set receiver ID
+                document.getElementById(`receiverId${productId}`).value = data.receiver_id;
+
+                // Update form action with product ID
+                const giftForm = document.getElementById(`giftPaymentForm${productId}`);
+                if (giftForm) {
+                    giftForm.setAttribute("action", `{% url 'process_gift_payment' 0 %}`.replace("0", productId));
+                }
+
+                // Switch to Step Two
+                document.getElementById("step1").style.display = "none";
+                document.getElementById("step2").style.display = "block";
+            } else {
+                alert("User not found.");
+            }
+        })
+        .catch(error => {
+            console.error("Error fetching wishlists:", error);
+        });
+    }
+
 </script>
 
 {% endblock %}

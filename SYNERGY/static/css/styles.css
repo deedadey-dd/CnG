@@ -302,7 +302,7 @@ body.theme-light .list-group-item {
 
     /* Adjust the modal size for mobile view */
     .modal-dialog.modal-lg {
-        max-width: 90%; /* Reduce modal width */
+        max-width: 80%; /* Reduce modal width */
         margin: 10px auto; /* Ensure proper margin */
     }
 
@@ -317,4 +317,12 @@ body.theme-light .list-group-item {
     }
 }
 
+.modal-dialog {
+    max-width: 600px;
+    margin: 1.75rem auto;
+}
+
+.modal-body #step1, .modal-body #step2 {
+    padding: 15px;
+}
 
