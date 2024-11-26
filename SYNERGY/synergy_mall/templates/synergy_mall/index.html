@@ -178,7 +178,9 @@
 
                     <!-- Step Two: Payment Form -->
                     <div id="step2" style="display: none;">
-                        <form id="giftPaymentForm{{ product.id }}" action="{% url 'process_gift_payment' product.id %}" method="POST">
+                        <input type="hidden" id="productId{{ product.id }}" name="product_id" value="{{ product.id }}">
+                        <p>Product ID: {{ product.id }}</p>
+                        <form id="giftPaymentForm{{ product.id }}" action="{% url 'process_gift_payment' 1 %}" method="POST">
                             {% csrf_token %}
                             <input type="hidden" name="receiver_id" id="receiverId{{ product.id }}">
                             <input type="hidden" name="wishlist_id" id="receiverWishlist{{ product.id }}">
@@ -280,12 +282,6 @@
                 // Set receiver ID
                 document.getElementById(`receiverId${productId}`).value = data.receiver_id;
 
-                // Update form action with product ID
-                const giftForm = document.getElementById(`giftPaymentForm${productId}`);
-                if (giftForm) {
-                    giftForm.setAttribute("action", `{% url 'process_gift_payment' 0 %}`.replace("0", productId));
-                }
-
                 // Switch to Step Two
                 document.getElementById("step1").style.display = "none";
                 document.getElementById("step2").style.display = "block";
@@ -297,6 +293,7 @@
             console.error("Error fetching wishlists:", error);
         });
     }
+
 
 </script>
 
