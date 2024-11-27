@@ -1049,18 +1049,30 @@ def fetch_receiver_wishlists(request):
     if request.method == "POST":
         data = json.loads(request.body)
         receiver_details = data.get('receiver_details')
+        print(receiver_details)
 
         # Search for receiver by email, phone, or username
         try:
-            receiver = User.objects.get(email=receiver_details) or User.objects.get(phone_number=receiver_details) or User.objects.get(username=receiver_details)
+            receiver = (
+                User.objects.filter(email=receiver_details).first() or
+                User.objects.filter(phone_number=receiver_details).first() or
+                User.objects.filter(username=receiver_details).first()
+            )
+
+            if receiver is None:
+                return JsonResponse({'success': False, 'message': 'User not found'}, status=404)
+
+            # Get the receiver's wishlists
             wishlists = Wishlist.objects.filter(user=receiver).values('id', 'title')
             return JsonResponse({
                 'success': True,
                 'receiver_id': receiver.id,
                 'wishlists': list(wishlists)
             })
-        except User.DoesNotExist:
-            return JsonResponse({'success': False, 'message': 'User not found'}, status=404)
+        except Exception as e:
+            print(f"Error: {e}")
+            return JsonResponse({'success': False, 'message': 'An error occurred'}, status=500)
+
     return JsonResponse({'success': False, 'message': 'Invalid request'}, status=400)
 
 

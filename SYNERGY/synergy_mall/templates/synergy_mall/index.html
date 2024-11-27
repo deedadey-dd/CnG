@@ -7,59 +7,14 @@
 <div class="container mt-5">
     <div class="row">
         {% for product in products_page %}
-        <div class="col-6 col-md-3">
-            <div class="card mb-2 mt-0">
-                <a href="#" data-toggle="modal" data-target="#productModal{{ product.id }}">
-                    <div id="productCarousel{{ product.id }}" class="carousel slide" data-ride="carousel">
-                        <div class="carousel-inner">
-                            {% for image in product.images.all %}
-                            <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                                <img src="{{ image.image.url }}" class="d-block w-100 product-image" alt="{{ product.name }}">
-                            </div>
-                            {% empty %}
-                            <div class="carousel-item active">
-                                <img src="{% static 'images/no-image-available.png' %}" class="d-block w-100 product-image" alt="No Image Available">
-                            </div>
-                            {% endfor %}
-                        </div>
-                        <a class="carousel-control-prev" href="#productCarousel{{ product.id }}" role="button" data-slide="prev">
-                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                            <span class="sr-only">Previous</span>
-                        </a>
-                        <a class="carousel-control-next" href="#productCarousel{{ product.id }}" role="button" data-slide="next">
-                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                            <span class="sr-only">Next</span>
-                        </a>
-                    </div>
-                </a>
-
-                <div class="card-body">
-                    <p class="card-title mb-0 mt-0">{{ product.name }}</p>
-                    <p class="card-text mb-0 mt-0"><strong>${{ product.price }}</strong></p>
-                </div>
-                <button type="button" class="btn btn-secondary" data-toggle="modal" data-target="#giftItemModal{{ product.id }}">
-                    Gift Item
-                </button>
-
-            </div>
-        </div>
-
-        <!-- Product Detail Modal -->
-        <div class="modal fade" id="productModal{{ product.id }}" tabindex="-1" role="dialog" aria-labelledby="productModalLabel{{ product.id }}" aria-hidden="true">
-            <div class="modal-dialog modal-lg" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="productModalLabel{{ product.id }}">{{ product.name }}</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
-                    </div>
-                    <div class="modal-body">
-                        <div id="modalCarousel{{ product.id }}" class="carousel slide" data-ride="carousel">
+            <div class="col-6 col-md-3">
+                <div class="card mb-2 mt-0">
+                    <a href="#" data-toggle="modal" data-target="#productModal{{ product.id }}">
+                        <div id="productCarousel{{ product.id }}" class="carousel slide" data-ride="carousel">
                             <div class="carousel-inner">
                                 {% for image in product.images.all %}
                                 <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                                    <img src="{{ image.image.url }}" class="d-block w-100 product-image2" alt="{{ product.name }}">
+                                    <img src="{{ image.image.url }}" class="d-block w-100 product-image" alt="{{ product.name }}">
                                 </div>
                                 {% empty %}
                                 <div class="carousel-item active">
@@ -67,141 +22,185 @@
                                 </div>
                                 {% endfor %}
                             </div>
-                            <a class="carousel-control-prev" href="#modalCarousel{{ product.id }}" role="button" data-slide="prev">
+                            <a class="carousel-control-prev" href="#productCarousel{{ product.id }}" role="button" data-slide="prev">
                                 <span class="carousel-control-prev-icon" aria-hidden="true"></span>
                                 <span class="sr-only">Previous</span>
                             </a>
-                            <a class="carousel-control-next" href="#modalCarousel{{ product.id }}" role="button" data-slide="next">
+                            <a class="carousel-control-next" href="#productCarousel{{ product.id }}" role="button" data-slide="next">
                                 <span class="carousel-control-next-icon" aria-hidden="true"></span>
                                 <span class="sr-only">Next</span>
                             </a>
                         </div>
+                    </a>
 
-                        <!-- Product details in the modal -->
-                        <div class="mt-3">
-                            <h5>Description:</h5>
-                            <p>{{ product.description }}</p>
+                    <div class="card-body">
+                        <p class="card-title mb-0 mt-0">{{ product.name }}</p>
+                        <p class="card-text mb-0 mt-0"><strong>${{ product.price }}</strong></p>
+                    </div>
+                    <button type="button" class="btn btn-secondary" data-toggle="modal" data-target="#giftItemModal{{ product.id }}">
+                        Gift Item
+                    </button>
 
-                            <!-- Price and Sale Price -->
-                            <h5>Price: ${{ product.price }}</h5>
-                            {% if product.sale_price and product.is_on_sale %}
-                            <h5>Sale Price: ${{ product.sale_price }}</h5>
-                            {% endif %}
+                </div>
+            </div>
 
-                            <!-- Variant Selection -->
-                            <form id="variantForm{{ product.id }}" method="POST">
-                                {% csrf_token %}
-
-                                <div class="row">
-                                    <div class="form-group col-md-6">
-                                        <label for="colorSelect{{ product.id }}">Color</label>
-                                        <select id="colorSelect{{ product.id }}" name="color" class="form-control">
-                                            {% for variant in product.variants.all %}
-                                                <option value="{{ variant.color }}">{{ variant.color }}</option>
-                                            {% endfor %}
-                                        </select>
+            <!-- Product Detail Modal -->
+            <div class="modal fade" id="productModal{{ product.id }}" tabindex="-1" role="dialog" aria-labelledby="productModalLabel{{ product.id }}" aria-hidden="true">
+                <div class="modal-dialog modal-lg" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="productModalLabel{{ product.id }}">{{ product.name }}</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <div id="modalCarousel{{ product.id }}" class="carousel slide" data-ride="carousel">
+                                <div class="carousel-inner">
+                                    {% for image in product.images.all %}
+                                    <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                        <img src="{{ image.image.url }}" class="d-block w-100 product-image2" alt="{{ product.name }}">
                                     </div>
-
-                                    <div class="form-group col-md-6">
-                                        <label for="sizeSelect{{ product.id }}">Size</label>
-                                        <select id="sizeSelect{{ product.id }}" name="size" class="form-control">
-                                            {% for variant in product.variants.all %}
-                                                <option value="{{ variant.size }}">{{ variant.size }}</option>
-                                            {% endfor %}
-                                        </select>
+                                    {% empty %}
+                                    <div class="carousel-item active">
+                                        <img src="{% static 'images/no-image-available.png' %}" class="d-block w-100 product-image" alt="No Image Available">
                                     </div>
+                                    {% endfor %}
                                 </div>
+                                <a class="carousel-control-prev" href="#modalCarousel{{ product.id }}" role="button" data-slide="prev">
+                                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                    <span class="sr-only">Previous</span>
+                                </a>
+                                <a class="carousel-control-next" href="#modalCarousel{{ product.id }}" role="button" data-slide="next">
+                                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                    <span class="sr-only">Next</span>
+                                </a>
+                            </div>
 
-                                <!-- Show buttons based on user role -->
-                                {% if user.is_authenticated and user.role != 'vendor' %}
-                                    <!-- Add to Wishlist -->
-                                    <div class="dropdown mt-2">
-                                        <button class="btn btn-success dropdown-toggle btn-block" type="button" id="wishlistDropdown{{ product.id }}" data-toggle="dropdown" aria-expanded="false">
-                                            Add to Wishlist
-                                        </button>
-                                        <ul class="dropdown-menu" aria-labelledby="wishlistDropdown{{ product.id }}">
-                                            {% if wishlists %}
-                                                {% for wishlist in wishlists %}
-                                                    <li>
-                                                        <a class="dropdown-item" href="#" onclick="addToWishlist({{ product.id }}, {{ wishlist.id }})">{{ wishlist.title }}</a>
-                                                    </li>
-                                                {% endfor %}
-                                            {% else %}
-                                                <li><span class="dropdown-item">No wishlists available</span></li>
-                                            {% endif %}
-                                        </ul>
-                                    </div>
+                            <!-- Product details in the modal -->
+                            <div class="mt-3">
+                                <h5>Description:</h5>
+                                <p>{{ product.description }}</p>
+
+                                <!-- Price and Sale Price -->
+                                <h5>Price: ${{ product.price }}</h5>
+                                {% if product.sale_price and product.is_on_sale %}
+                                <h5>Sale Price: ${{ product.sale_price }}</h5>
                                 {% endif %}
 
-                                <!-- Add to Cart and Purchase Options -->
-                                <div class="mt-3">
-                                    <a href="#" class="btn btn-primary">Buy Item</a>
-                                    <button type="button" class="btn btn-secondary" data-toggle="modal" data-target="#giftItemModal{{ product.id }}">
-                                        Gift Item
-                                    </button>
-                                    <a href="#" class="btn btn-warning">Add to Cart</a>
-                                </div>
+                                <!-- Variant Selection -->
+                                <form id="variantForm{{ product.id }}" method="POST">
+                                    {% csrf_token %}
 
-                                <!-- Vendor Details -->
-                                <h5>Store: <a href="{% url 'vendor_products' product.vendor.id %}">{{ product.vendor.vendor_profile.company_name }}</a></h5>
-                            </form>
+                                    <div class="row">
+                                        <div class="form-group col-md-6">
+                                            <label for="colorSelect{{ product.id }}">Color</label>
+                                            <select id="colorSelect{{ product.id }}" name="color" class="form-control">
+                                                {% for variant in product.variants.all %}
+                                                    <option value="{{ variant.color }}">{{ variant.color }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+
+                                        <div class="form-group col-md-6">
+                                            <label for="sizeSelect{{ product.id }}">Size</label>
+                                            <select id="sizeSelect{{ product.id }}" name="size" class="form-control">
+                                                {% for variant in product.variants.all %}
+                                                    <option value="{{ variant.size }}">{{ variant.size }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <!-- Show buttons based on user role -->
+                                    {% if user.is_authenticated and user.role != 'vendor' %}
+                                        <!-- Add to Wishlist -->
+                                        <div class="dropdown mt-2">
+                                            <button class="btn btn-success dropdown-toggle btn-block" type="button" id="wishlistDropdown{{ product.id }}" data-toggle="dropdown" aria-expanded="false">
+                                                Add to Wishlist
+                                            </button>
+                                            <ul class="dropdown-menu" aria-labelledby="wishlistDropdown{{ product.id }}">
+                                                {% if wishlists %}
+                                                    {% for wishlist in wishlists %}
+                                                        <li>
+                                                            <a class="dropdown-item" href="#" onclick="addToWishlist({{ product.id }}, {{ wishlist.id }})">{{ wishlist.title }}</a>
+                                                        </li>
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <li><span class="dropdown-item">No wishlists available</span></li>
+                                                {% endif %}
+                                            </ul>
+                                        </div>
+                                    {% endif %}
+
+                                    <!-- Add to Cart and Purchase Options -->
+                                    <div class="mt-3">
+                                        <a href="#" class="btn btn-primary">Buy Item</a>
+                                        <button type="button" class="btn btn-secondary" data-toggle="modal" data-target="#giftItemModal{{ product.id }}">
+                                            Gift Item
+                                        </button>
+                                        <a href="#" class="btn btn-warning">Add to Cart</a>
+                                    </div>
+
+                                    <!-- Vendor Details -->
+                                    <h5>Store: <a href="{% url 'vendor_products' product.vendor.id %}">{{ product.vendor.vendor_profile.company_name }}</a></h5>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-        {% endfor %}
-    </div>
 
-    <!-- Gifting Modal -->
-    <div class="modal fade" id="giftItemModal{{ product.id }}" tabindex="-1" role="dialog" aria-labelledby="giftItemModalLabel{{ product.id }}" aria-hidden="true">
-        <div class="modal-dialog modal-lg" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="giftItemModalLabel{{ product.id }}">Gift {{ product.name }}</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <!-- Step 1: Enter Receiver Details -->
-                    <div id="step1">
-                        <form onsubmit="event.preventDefault(); fetchReceiverWishlists({{ product.id }});">
-                            {% csrf_token %}
-                            <div class="form-group">
-                                <label for="receiverDetails{{ product.id }}">Receiver's Email, Phone, or Username</label>
-                                <input type="text" class="form-control" id="receiverDetails{{ product.id }}" required placeholder="Enter receiver's details">
+            <!-- Gifting Modal -->
+            <div class="modal fade" id="giftItemModal{{ product.id }}" tabindex="-1" role="dialog" aria-labelledby="giftItemModalLabel{{ product.id }}" aria-hidden="true">
+                <div class="modal-dialog modal-lg" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="giftItemModalLabel{{ product.id }}">Gift {{ product.name }}</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <!-- Step 1: Enter Receiver Details -->
+                            <div id="step1">
+                                <form onsubmit="event.preventDefault(); fetchReceiverWishlists({{ product.id }});">
+                                    {% csrf_token %}
+                                    <div class="form-group">
+                                        <label for="receiverDetails{{ product.id }}">Receiver's Email, Phone, or Username</label>
+                                        <input type="text" class="form-control" id="receiverDetails{{ product.id }}" required placeholder="Enter receiver's details">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Find Receiver</button>
+                                </form>
                             </div>
-                            <button type="submit" class="btn btn-primary">Find Receiver</button>
-                        </form>
+
+                            <!-- Step Two: Payment Form -->
+                            <div id="step2" style="display: none;">
+                                <p>Product ID: {{ product.id }}</p>
+                                <form id="giftPaymentForm{{ product.id }}" action="{% url 'process_gift_payment' product.id %}" method="POST">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="receiver_id" id="receiverId{{ product.id }}">
+                                    <input type="hidden" name="wishlist_id" id="receiverWishlist{{ product.id }}">
+
+                                    <div class="form-group">
+                                        <label for="giverContact{{ product.id }}">Your Contact</label>
+                                        <input type="text" id="giverContact{{ product.id }}" name="giver_contact" class="form-control" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="messageToReceiver{{ product.id }}">Message to Receiver</label>
+                                        <textarea id="messageToReceiver{{ product.id }}" name="message_to_receiver" class="form-control"></textarea>
+                                    </div>
+
+                                    <button type="submit" class="btn btn-primary">Confirm and Gift</button>
+                                </form>
+                            </div>
+
+                        </div>
                     </div>
-
-                    <!-- Step Two: Payment Form -->
-                    <div id="step2" style="display: none;">
-                        <input type="hidden" id="productId{{ product.id }}" name="product_id" value="{{ product.id }}">
-                        <p>Product ID: {{ product.id }}</p>
-                        <form id="giftPaymentForm{{ product.id }}" action="{% url 'process_gift_payment' 1 %}" method="POST">
-                            {% csrf_token %}
-                            <input type="hidden" name="receiver_id" id="receiverId{{ product.id }}">
-                            <input type="hidden" name="wishlist_id" id="receiverWishlist{{ product.id }}">
-
-                            <div class="form-group">
-                                <label for="giverContact{{ product.id }}">Your Contact</label>
-                                <input type="text" id="giverContact{{ product.id }}" name="giver_contact" class="form-control" required>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="messageToReceiver{{ product.id }}">Message to Receiver</label>
-                                <textarea id="messageToReceiver{{ product.id }}" name="message_to_receiver" class="form-control"></textarea>
-                            </div>
-
-                            <button type="submit" class="btn btn-primary">Confirm and Gift</button>
-                        </form>
-                    </div>
-
                 </div>
             </div>
-        </div>
+        {% endfor %}
     </div>
 
 
