@@ -34,8 +34,14 @@
                     </a>
 
                     <div class="card-body">
-                        <p class="card-title mb-0 mt-0">{{ product.name }}</p>
                         <p class="card-text mb-0 mt-0"><strong>${{ product.price }}</strong></p>
+                        <p class="card-title mb-0 mt-0">{{ product.name }}</p>
+                        <p class="mb-0 mt-0"><small class="mb-0 mt-0">
+                            {{ product.vendor.vendor_profile.location }} • {{ product.condition|title}} •
+                        </small></p>
+                    </div>
+                    <div class="row">
+
                     </div>
                     <button type="button" class="btn btn-secondary" data-toggle="modal" data-target="#giftItemModal{{ product.id }}">
                         Gift Item
@@ -163,7 +169,7 @@
                         </div>
                         <div class="modal-body">
                             <!-- Step 1: Enter Receiver Details -->
-                            <div id="step1">
+                            <div id="step1{{ product.id }}">
                                 <form onsubmit="event.preventDefault(); fetchReceiverWishlists({{ product.id }});">
                                     {% csrf_token %}
                                     <div class="form-group">
@@ -175,12 +181,20 @@
                             </div>
 
                             <!-- Step Two: Payment Form -->
-                            <div id="step2" style="display: none;">
+                            <div id="step2{{ product.id }}" style="display: none;">
                                 <p>Product ID: {{ product.id }}</p>
                                 <form id="giftPaymentForm{{ product.id }}" action="{% url 'process_gift_payment' product.id %}" method="POST">
                                     {% csrf_token %}
                                     <input type="hidden" name="receiver_id" id="receiverId{{ product.id }}">
                                     <input type="hidden" name="wishlist_id" id="receiverWishlist{{ product.id }}">
+
+                                    <div class="form-group">
+                                        <label for="receiverWishlist{{ product.id }}">Select Receiver's Wishlist</label>
+                                        <select id="receiverWishlist{{ product.id }}" name="wishlist_id" class="form-control">
+                                            <option value="">-- Select Wishlist --</option>
+                                            <!-- Options will be dynamically inserted here -->
+                                        </select>
+                                    </div>
 
                                     <div class="form-group">
                                         <label for="giverContact{{ product.id }}">Your Contact</label>
@@ -267,10 +281,12 @@
         })
         .then(response => response.json())
         .then(data => {
+            console.log(data); // Debugging
+
             if (data.success) {
-                // Populate the wishlist dropdown
+                // Populate the dropdown with wishlists
                 const wishlistSelect = document.getElementById(`receiverWishlist${productId}`);
-                wishlistSelect.innerHTML = '<option value="general">General Wishlist</option>';
+                wishlistSelect.innerHTML = '<option value="">-- Select Wishlist --</option>'; // Default option
                 data.wishlists.forEach(wishlist => {
                     const option = document.createElement("option");
                     option.value = wishlist.id;
@@ -282,8 +298,10 @@
                 document.getElementById(`receiverId${productId}`).value = data.receiver_id;
 
                 // Switch to Step Two
-                document.getElementById("step1").style.display = "none";
-                document.getElementById("step2").style.display = "block";
+                setTimeout(() => {
+                    document.getElementById(`step1${productId}`).style.display = "none";
+                    document.getElementById(`step2${productId}`).style.display = "block";
+                }, 100);
             } else {
                 alert("User not found.");
             }
@@ -292,7 +310,6 @@
             console.error("Error fetching wishlists:", error);
         });
     }
-
 
 </script>
 

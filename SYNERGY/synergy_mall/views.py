@@ -1047,33 +1047,42 @@ def add_to_cart(request, product_id):
 @csrf_exempt
 def fetch_receiver_wishlists(request):
     if request.method == "POST":
-        data = json.loads(request.body)
-        receiver_details = data.get('receiver_details')
-        print(receiver_details)
-
-        # Search for receiver by email, phone, or username
         try:
-            receiver = (
-                User.objects.filter(email=receiver_details).first() or
-                User.objects.filter(phone_number=receiver_details).first() or
-                User.objects.filter(username=receiver_details).first()
-            )
+            # Parse request body
+            data = json.loads(request.body)
+            receiver_details = data.get('receiver_details')
 
-            if receiver is None:
+            # Validate receiver details
+            if not receiver_details:
+                return JsonResponse({'success': False, 'message': 'Receiver details are required'}, status=400)
+
+            # Search for receiver by email, phone, or username
+            receiver = User.objects.filter(
+                Q(email=receiver_details) |
+                Q(phone_number=receiver_details) |
+                Q(username=receiver_details)
+            ).first()
+
+            if not receiver:
                 return JsonResponse({'success': False, 'message': 'User not found'}, status=404)
 
-            # Get the receiver's wishlists
+            # Get wishlists for the receiver
             wishlists = Wishlist.objects.filter(user=receiver).values('id', 'title')
+
+            # Return response
             return JsonResponse({
                 'success': True,
                 'receiver_id': receiver.id,
                 'wishlists': list(wishlists)
             })
-        except Exception as e:
-            print(f"Error: {e}")
-            return JsonResponse({'success': False, 'message': 'An error occurred'}, status=500)
 
-    return JsonResponse({'success': False, 'message': 'Invalid request'}, status=400)
+        except Exception as e:
+            # Log the error for debugging
+            print(f"Error during fetch_receiver_wishlists: {e}")
+            return JsonResponse({'success': False, 'message': f'An error occurred: {str(e)}'}, status=500)
+
+    # Invalid request method
+    return JsonResponse({'success': False, 'message': 'Invalid request method'}, status=400)
 
 
 def process_gift_payment(request, product_id):
