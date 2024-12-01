@@ -188,13 +188,18 @@
                                     <input type="hidden" name="receiver_id" id="receiverId{{ product.id }}">
                                     <input type="hidden" name="wishlist_id" id="receiverWishlist{{ product.id }}">
 
-                                    <div class="form-group">
-                                        <label for="receiverWishlist{{ product.id }}">Select Receiver's Wishlist</label>
-                                        <select id="receiverWishlist{{ product.id }}" name="wishlist_id" class="form-control">
-                                            <option value="">-- Select Wishlist --</option>
-                                            <!-- Options will be dynamically inserted here -->
-                                        </select>
-                                    </div>
+                            <div id="wishlistDropdownContainer{{ product.id }}" class="mt-3">
+                                <div class="dropdown">
+                                    <button class="btn btn-success dropdown-toggle btn-block" type="button" id="wishlistDropdown{{ product.id }}" data-toggle="dropdown" aria-expanded="false">
+                                        Select Wishlist
+                                    </button>
+                                    <ul class="dropdown-menu" id="wishlistDropdownMenu{{ product.id }}" aria-labelledby="wishlistDropdown{{ product.id }}">
+                                        <!-- Options will be dynamically added here -->
+                                        <li><span class="dropdown-item">Loading...</span></li>
+                                    </ul>
+                                </div>
+                            </div>
+
 
                                     <div class="form-group">
                                         <label for="giverContact{{ product.id }}">Your Contact</label>
@@ -284,20 +289,31 @@
             console.log(data); // Debugging
 
             if (data.success) {
-                // Populate the dropdown with wishlists
-                const wishlistSelect = document.getElementById(`receiverWishlist${productId}`);
-                wishlistSelect.innerHTML = '<option value="">-- Select Wishlist --</option>'; // Default option
-                data.wishlists.forEach(wishlist => {
-                    const option = document.createElement("option");
-                    option.value = wishlist.id;
-                    option.text = wishlist.title;
-                    wishlistSelect.appendChild(option);
-                });
+                const wishlistDropdownMenu = document.getElementById(`wishlistDropdownMenu${productId}`);
+                wishlistDropdownMenu.innerHTML = ''; // Clear existing options
 
-                // Set receiver ID
+                if (data.wishlists.length > 0) {
+                    data.wishlists.forEach(wishlist => {
+                        const listItem = document.createElement("li");
+                        const link = document.createElement("a");
+                        link.className = "dropdown-item";
+                        link.href = "#";
+                        link.textContent = wishlist.title;
+                        link.onclick = (e) => {
+                            e.preventDefault(); // Prevent navigation
+                            selectWishlist(productId, wishlist.id, wishlist.title);
+                        };
+                        listItem.appendChild(link);
+                        wishlistDropdownMenu.appendChild(listItem);
+                    });
+                } else {
+                    const noWishlistItem = document.createElement("li");
+                    noWishlistItem.innerHTML = '<span class="dropdown-item">No wishlists available</span>';
+                    wishlistDropdownMenu.appendChild(noWishlistItem);
+                }
+
                 document.getElementById(`receiverId${productId}`).value = data.receiver_id;
 
-                // Switch to Step Two
                 setTimeout(() => {
                     document.getElementById(`step1${productId}`).style.display = "none";
                     document.getElementById(`step2${productId}`).style.display = "block";
@@ -309,6 +325,20 @@
         .catch(error => {
             console.error("Error fetching wishlists:", error);
         });
+    }
+
+    function selectWishlist(productId, wishlistId, wishlistTitle) {
+        // Change the button text to the selected wishlist name
+        const button = document.getElementById(`wishlistDropdown${productId}`);
+        button.textContent = wishlistTitle;
+
+        // Optionally, store the selected wishlistId in a hidden input
+        const wishlistInput = document.getElementById(`receiverWishlist${productId}`);
+        if (wishlistInput) {
+            wishlistInput.value = wishlistId;
+        }
+
+        console.log(`Selected Wishlist: ${wishlistTitle} (ID: ${wishlistId})`);
     }
 
 </script>
