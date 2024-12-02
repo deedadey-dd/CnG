@@ -1,7 +1,7 @@
 # wishlist.py
 
 from django.shortcuts import get_object_or_404
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from .models import Wishlist, WishlistItem, Product
 from django.utils import timezone
 
@@ -24,22 +24,45 @@ class WishlistService:
         return wishlist
 
     def delete_wishlist(self, wishlist_id):
-        """
-        Delete a wishlist owned by the user.
-        """
-        wishlist = self._get_user_wishlist(wishlist_id)
-        wishlist.delete()
+        try:
+            # Ensure the wishlist belongs to the user
+            wishlist = Wishlist.objects.get(id=wishlist_id, user=self.user)
 
-    def update_wishlist(self, wishlist_id, title, description=None, privacy='private', expiry_date=None):
+            # Prevent deletion of the "General List"
+            if wishlist.title == "General List":
+                raise ValidationError("The 'General List' wishlist cannot be deleted.")
+
+            # Delete the wishlist
+            wishlist.delete()
+        except Wishlist.DoesNotExist:
+            raise ValidationError("Wishlist not found.")
+
+    def update_wishlist(self, wishlist_id, title=None, description=None, privacy=None, expiry_date=None):
         """
         Edit an existing wishlist.
+        Restrict edits to title, privacy, and expiry_date for the 'General List'.
         """
         wishlist = self._get_user_wishlist(wishlist_id)
-        wishlist.title = title
-        wishlist.description = description
-        wishlist.privacy = privacy
-        wishlist.expiry_date = expiry_date
+
+        if wishlist.title == "General List":
+            # Only allow updating the description for 'General List'
+            if description is not None:
+                wishlist.description = description
+            else:
+                raise ValidationError("You can only update the description of the 'General List' wishlist.")
+        else:
+            # Allow full edits for other wishlists
+            if title:
+                wishlist.title = title
+            if description is not None:
+                wishlist.description = description
+            if privacy:
+                wishlist.privacy = privacy
+            if expiry_date:
+                wishlist.expiry_date = expiry_date
+
         wishlist.save()
+        return wishlist
 
     def get_user_wishlists(self):
         """

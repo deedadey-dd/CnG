@@ -38,4 +38,5 @@ urlpatterns = [
     path('vendor/<int:vendor_id>/products/', views.vendor_products, name='vendor_products'),
     path('fetch-receiver-wishlists/', views.fetch_receiver_wishlists, name='fetch_receiver_wishlists'),
     path('process-gift-payment/<int:product_id>/', views.process_gift_payment, name='process_gift_payment'),
+    path('gifts/received/', views.received_gifts, name='received_gifts'),
 ]

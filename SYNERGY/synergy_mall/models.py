@@ -216,6 +216,8 @@ class WishlistItem(models.Model):
     status = models.CharField(max_length=50, choices=[('pending', 'Pending'), ('partial', 'Partially Filled'), ('filled', 'Filled')], default='Pending')
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     ordering = models.PositiveIntegerField(default=0)  # Field to order items
+    giver_contact = models.CharField(max_length=255, blank=True, null=True)
+    message = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.product.name} in {self.wishlist.title}"
@@ -260,13 +262,21 @@ class Contribution(models.Model):
 
 
 class Gift(models.Model):
-    giver = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='gifts_sent')
+    giver = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gifts_sent',
+        blank=True,  # Allow this field to be optional
+        null=True    # Allow null values
+    )
     receiver = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='gifts_received')
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    amount_given = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     wishlist = models.ForeignKey(Wishlist, on_delete=models.CASCADE)
-    giver_contact = models.CharField(max_length=255)
+    giver_contact = models.CharField(max_length=255, blank=True, null=True)  # Contact is optional for authenticated users
     message_to_receiver = models.TextField(blank=True, null=True)
     date_sent = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Gift of {self.product.name} from {self.giver} to {self.receiver}"
+        return f"Gift of {self.product.name} from {self.giver or 'Unauthenticated User'} to {self.receiver}"
+

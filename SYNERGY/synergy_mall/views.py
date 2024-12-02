@@ -5,6 +5,7 @@ import openpyxl
 import pandas as pd
 from decimal import Decimal
 import requests
+from django.core.exceptions import ValidationError
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.core.paginator import Paginator
@@ -207,15 +208,20 @@ def create_wishlist(request):
 @login_required
 def delete_wishlist(request, wishlist_id):
     wishlist_service = WishlistService(request.user)
-    wishlist_service.delete_wishlist(wishlist_id)
-    messages.success(request, 'Wishlist deleted successfully!')
-    return redirect('user_wishlists')
+
+    try:
+        wishlist_service.delete_wishlist(wishlist_id)
+        messages.success(request, 'Wishlist deleted successfully!')
+    except ValidationError as e:
+        messages.error(request, str(e))  # Display the error message
+
+    return redirect('my_wishlists')
 
 
 @login_required
 def edit_wishlist(request, wishlist_id):
     wishlist_service = WishlistService(request.user)
-    wishlist = wishlist_service.get_wishlist(wishlist_id)
+    wishlist = wishlist_service._get_user_wishlist(wishlist_id)
 
     if request.method == 'POST':
         title = request.POST.get('title')
@@ -223,15 +229,21 @@ def edit_wishlist(request, wishlist_id):
         privacy = request.POST.get('privacy', 'private')
         expiry_date = request.POST.get('expiry_date', None)
 
-        wishlist_service.update_wishlist(
-            wishlist_id=wishlist.id,
-            title=title,
-            description=description,
-            privacy=privacy,
-            expiry_date=expiry_date
-        )
-        messages.success(request, f'Wishlist "{wishlist.title}" updated successfully!')
-        return redirect('view_wishlist', wishlist_id=wishlist.id)
+        try:
+            # Attempt to update the wishlist
+            wishlist_service.update_wishlist(
+                wishlist_id=wishlist.id,
+                title=title,
+                description=description,
+                privacy=privacy,
+                expiry_date=expiry_date
+            )
+            messages.success(request, f'Wishlist "{wishlist.title}" updated successfully!')
+            return redirect('view_wishlist', wishlist_id=wishlist.id)
+
+        except ValidationError as e:
+            # Show validation error messages
+            messages.error(request, str(e))
 
     context = {
         'wishlist': wishlist
@@ -1097,7 +1109,7 @@ def process_gift_payment(request, product_id):
             giver_contact = form.cleaned_data['giver_contact']
             message_to_receiver = form.cleaned_data['message_to_receiver']
             receiver = get_object_or_404(User, id=receiver_id)
-            wishlist = Wishlist.objects.filter(id=wishlist_id, user=receiver).first()
+            wishlist = Wishlist.objects.filter(user=receiver, title="General List").first() if not wishlist_id else Wishlist.objects.get(id=wishlist_id)
 
             if wishlist:
                 # Ensure the gift product is fully paid here (payment processing omitted)
@@ -1127,3 +1139,11 @@ def process_gift_payment(request, product_id):
         form = GiftPaymentForm()
 
     return render(request, 'synergy_mall/gift_payment.html', {'form': form, 'product': product})
+
+
+@login_required
+def received_gifts(request):
+    # Fetch all gifts for the logged-in user
+    gifts = Gift.objects.filter(receiver=request.user).select_related('giver', 'product', 'wishlist')
+
+    return render(request, 'gifts/received_gifts.html', {'gifts': gifts})
