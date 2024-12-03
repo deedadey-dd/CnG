@@ -43,6 +43,7 @@
                     <div class="row">
 
                     </div>
+
                     <button type="button" class="btn btn-secondary" data-toggle="modal" data-target="#giftItemModal{{ product.id }}">
                         Gift Item
                     </button>
@@ -183,7 +184,11 @@
 
                             <!-- Step Two: Payment Form -->
                             <div id="step2{{ product.id }}" style="display: none;">
-<!--                                <p>Product ID: {{ product.id }}</p>-->
+                                <!-- Receiver Field -->
+                                <div class="form-group">
+                                    <label for="receiverName{{ product.id }}">Receiver</label>
+                                    <input type="text" id="receiverName{{ product.id }}" class="form-control" readonly placeholder="Receiver's Name">
+                                </div>
                                 <form id="giftPaymentForm{{ product.id }}" action="{% url 'process_gift_payment' product.id %}" method="POST">
                                     {% csrf_token %}
                                     <input type="hidden" name="receiver_id" id="receiverId{{ product.id }}">
@@ -201,6 +206,10 @@
                                         </div>
                                     </div>
 
+                                    <div class="form-group">
+                                        <label for="giver{{ product.id }}">Your Name</label>
+                                        <input type="text" id="giver{{ product.id }}" name="giver" class="form-control" required>
+                                    </div>
 
                                     <div class="form-group">
                                         <label for="giverContact{{ product.id }}">Your Contact</label>
@@ -212,7 +221,7 @@
                                         <label for="amountGiven{{ product.id }}">Amount to Give</label>
                                         <input type="number" id="amountGiven{{ product.id }}" name="amount_given" class="form-control" min="{{ product.price }}" required placeholder="Enter amount to give">
                                         <small class="form-text text-muted">
-                                            The amount must be at least ${{ product.price }}.
+                                            The amount must be at least ${{ product.price }}. Any extra will be paid out as cash.
                                         </small>
                                     </div>
 
@@ -322,8 +331,22 @@
                     wishlistDropdownMenu.appendChild(noWishlistItem);
                 }
 
+                // Set receiver details in Step Two
+                const receiverNameField = document.getElementById(`receiverName${productId}`);
+                if (receiverNameField) {
+                    receiverNameField.value = data.receiver_name || "Unknown Receiver";
+                }
+
+                // Update modal title with receiver's name
+                const modalTitle = document.getElementById(`giftItemModalLabel${productId}`);
+                if (modalTitle) {
+                    modalTitle.textContent = `Gift ${modalTitle.dataset.productName} to ${data.receiver_name || "Unknown Receiver"}`;
+                }
+
+                // Store receiver ID
                 document.getElementById(`receiverId${productId}`).value = data.receiver_id;
 
+                // Proceed to Step Two
                 setTimeout(() => {
                     document.getElementById(`step1${productId}`).style.display = "none";
                     document.getElementById(`step2${productId}`).style.display = "block";
@@ -342,7 +365,7 @@
         const button = document.getElementById(`wishlistDropdown${productId}`);
         button.textContent = wishlistTitle;
 
-        // Optionally, store the selected wishlistId in a hidden input
+        // Store the selected wishlistId in a hidden input
         const wishlistInput = document.getElementById(`receiverWishlist${productId}`);
         if (wishlistInput) {
             wishlistInput.value = wishlistId;
@@ -350,8 +373,7 @@
 
         console.log(`Selected Wishlist: ${wishlistTitle} (ID: ${wishlistId})`);
     }
-
-
 </script>
+
 
 {% endblock %}

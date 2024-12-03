@@ -6,6 +6,65 @@
 <div class="container">
     <h2>My Wishlists</h2>
 
+    <!-- Floating Button -->
+    <button class="floating-plus-btn" title="Create New Wishlist" data-toggle="modal" data-target="#createWishlistModal">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="white" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" fill="#007bff" />
+            <path d="M12 6v12m-6-6h12" stroke="white" stroke-width="2" stroke-linecap="round" />
+        </svg>
+    </button>
+
+    <!-- Modal for Creating Wishlist -->
+    <div class="modal fade" id="createWishlistModal" tabindex="-1" role="dialog" aria-labelledby="createWishlistLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="createWishlistLabel">Create New Wishlist</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form method="POST" action="{% url 'create_wishlist' %}">
+                        {% csrf_token %}
+
+                        <!-- Title -->
+                        <div class="form-group">
+                            <label for="wishlistTitle">Title</label>
+                            <input type="text" class="form-control" id="wishlistTitle" name="title" placeholder="Enter wishlist title" required>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="form-group">
+                            <label for="wishlistDescription">Description</label>
+                            <textarea class="form-control" id="wishlistDescription" name="description" rows="3"></textarea>
+                        </div>
+
+                        <!-- Privacy -->
+                        <div class="form-group">
+                            <label for="wishlistPrivacy">Privacy</label>
+                            <select class="form-control" id="wishlistPrivacy" name="privacy">
+                                <option value="private" selected>Private</option>
+                                <option value="public">Public</option>
+                            </select>
+                        </div>
+
+                        <!-- Expiry Date -->
+                        <div class="form-group">
+                            <label for="wishlistExpiryDate">Expiry Date</label>
+                            <input type="date" class="form-control" id="wishlistExpiryDate" name="expiry_date">
+                            <small class="form-text text-muted">Leave blank for no expiry date.</small>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">Create Wishlist</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
     {% if page_obj %}
     <div class="row">
     {% for wishlist in page_obj %}

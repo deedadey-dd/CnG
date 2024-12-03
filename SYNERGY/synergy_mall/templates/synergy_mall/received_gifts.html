@@ -22,7 +22,7 @@
                     <td>{{ gift.giver_contact }}</td>
                     <td>${{ gift.amount_given }}</td>
                     <td>{{ gift.message_to_receiver }}</td>
-                    <td>{{ gift.date_sent }}</td>
+                    <td>{{ gift.date_sent |date:"Y-m-d | H:i" }}</td>
                 </tr>
             {% endfor %}
         </tbody>

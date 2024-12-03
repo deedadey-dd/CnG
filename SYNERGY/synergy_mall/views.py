@@ -1094,6 +1094,7 @@ def fetch_receiver_wishlists(request):
             return JsonResponse({
                 'success': True,
                 'receiver_id': receiver.id,
+                'receiver_name': f"{receiver.first_name} {receiver.surname}",
                 'wishlists': list(wishlists)
             })
 
@@ -1115,62 +1116,74 @@ def process_gift_payment(request, product_id):
         wishlist_id = request.POST.get('wishlist_id')
 
         if form.is_valid():
-            giver_provided_contact = form.cleaned_data['giver_contact']
             message_to_receiver = form.cleaned_data['message_to_receiver']
-            receiver = get_object_or_404(User, id=receiver_id)
-            amount_given = form.cleaned_data['amount_given']
-            print(amount_given)
-            print(type(amount_given))
-            wishlist = Wishlist.objects.filter(user=receiver, title="General List").first() if not wishlist_id else Wishlist.objects.get(id=wishlist_id)
-            giver = None
+            giver_contact = None
 
-            # Handle giver information
+            # Get receiver and validate
+            receiver = get_object_or_404(User, id=receiver_id)
+
+            # Extract and validate `amount_given`
+            try:
+                amount_given = Decimal(request.POST.get('amount_given', '0'))
+                if amount_given < product.price:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'Amount must be at least the price of the product.'
+                    }, status=400)
+            except (ValueError, TypeError):
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Amount must be a valid number.'
+                }, status=400)
+
+            # Determine the `giver` and their contact info
             if request.user.is_authenticated:
                 giver = request.user
-                giver_contact = f"{giver.first_name} {giver.surname} - {giver.email}"  # Prepopulate contact info
+                giver_contact = giver.phone_number  # Ensure this field exists in your Profile model
             else:
-                giver_contact = giver_provided_contact  # No giver object for unauthenticated users
-                if not giver_provided_contact:
-                    return JsonResponse(
-                        {'success': False, 'message': 'Contact information is required for unauthenticated users'},
-                        status=400)
+                giver = None
+                giver_contact = form.cleaned_data['giver_contact']
+                if not giver_contact:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'Contact information is required for unauthenticated users.'
+                    }, status=400)
 
-            if wishlist:
-                if amount_given < product.price:
-                    return JsonResponse(
-                        {'success': False, 'message': 'Amount must be at least the price of the product'}, status=400)
+            # Get or validate the wishlist
+            wishlist = Wishlist.objects.filter(
+                user=receiver, title="General List"
+            ).first() if not wishlist_id else get_object_or_404(Wishlist, id=wishlist_id)
 
-                surplus = amount_given - product.price
+            # Handle surplus amount
+            surplus = amount_given - product.price
+            if surplus > 0:
+                # Assuming `cash` is a field on the receiver's Profile model
+                receiver.profile.cash_on_hand += surplus
+                receiver.profile.save()
 
-                # Add surplus to receiver's cash on hand
-                if surplus > 0:
-                    receiver.profile.cash_on_hand += surplus
-                    receiver.profile.save()
+            # Create the Gift object
+            Gift.objects.create(
+                giver=giver,
+                receiver=receiver,
+                product=product,
+                amount_given=amount_given,
+                wishlist=wishlist,
+                giver_contact=giver_contact,
+                message_to_receiver=message_to_receiver,
+            )
 
-                # TODO Ensure the gift product is fully paid here (payment processing omitted)
+            # Optionally add the product to the wishlist as a WishlistItem
+            WishlistItem.objects.create(
+                wishlist=wishlist,
+                product=product,
+                giver_contact=giver_contact,
+                message=message_to_receiver
+            )
 
-                # Record the gift in the Gift model
-                Gift.objects.create(
-                    giver=giver,
-                    receiver=receiver,
-                    product=product,
-                    wishlist=wishlist,
-                    giver_contact=giver_contact,
-                    amount_given = amount_given,
-                    message_to_receiver=message_to_receiver,
-                )
-
-                WishlistItem.objects.create(
-                    wishlist=wishlist,
-                    product=product,
-                    giver_contact=giver_contact,
-                    message=message_to_receiver
-                )
-
-                messages.success(request, "Gift sent successfully!")
-            else:
-                messages.error(request, "Invalid Wishlist selection.")
-            return redirect('index')  # Or a success confirmation page
+            messages.success(request, "Gift sent successfully!")
+            return redirect('index')  # Or redirect to a success page
+        else:
+            messages.error(request, "Invalid form submission.")
     else:
         form = GiftPaymentForm()
 
