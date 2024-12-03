@@ -13,10 +13,20 @@ class WishlistService:
     def create_wishlist(self, title, description=None, privacy='private', expiry_date=None):
         """
         Create a new wishlist for the user.
+        Ensure the title is unique and prevent 'General List'.
         """
+        # Prevent creating a wishlist titled 'General List'
+        if title.strip().lower() == "general list":
+            raise ValidationError("You cannot create a wishlist titled 'General List'. It is reserved.")
+
+        # Check for unique title
+        if Wishlist.objects.filter(user=self.user, title__iexact=title.strip()).exists():
+            raise ValidationError(f"A wishlist with the title '{title}' already exists. Please choose a different name.")
+
+        # Create the wishlist if validations pass
         wishlist = Wishlist.objects.create(
             user=self.user,
-            title=title,
+            title=title.strip(),  # Clean up extra spaces
             description=description,
             privacy=privacy,
             expiry_date=expiry_date,

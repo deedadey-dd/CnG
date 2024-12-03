@@ -146,19 +146,21 @@
                                                 {% else %} Initial Price: <del style="color: red">${{ item.total_price }}</del> Remaining: <strong> $ {{ item.amount_remaining }}</strong>{% endif %}
                                             </h5>
                                         </div>
-                                        <h6 class="ml-0">--- Contributions ---</h6>
+                                        <h6 class="ml-0"><strong>--- Contributions ---</strong></h6>
                                         <div class="row">
                                             {% for contribution in item.contribution_set.all %}
-                                                <div class="contribution mr-4">
-                                                    <p class="mb-0 mt-0"><strong>{{ contribution.contributor_name }}</strong> says... </p>
-                                                    <p class="mb-0 mt-0"><i>{{ contribution.message }}</i></p>
-                                                    <p class="mb-0 mt-0"> ...with <strong> ${{ contribution.amount }}</strong></p>
+                                            <ul class="list-group">
+                                                <li class="list-group-item">
+                                                    <p class="mb-0 mt-0"><strong>{{ contribution.contributor_name }}</strong> says...
+                                                        <i>{{ contribution.message }}</i>  ...with <strong> ${{ contribution.amount }}</strong>
+                                                    </p>
+
                                                     {% if user == wishlist.user %}
                                                     <p class="mb-0 mt-0 text-right"><i><small>{{ contribution.contact_info }}</small></i></p>
                                                     {% endif %}
-                                                    <p class="mb-1 mt-0 text-right"><i><small>{{ contribution.date|date:"Ymd | H:i" }}</small></i></p>
-                                                </div>
-                                            <hr>
+                                                    <p class="mb-1 mt-0" align="right"><i><small>{{ contribution.date|date:"Y-m-d | H:i" }}</small></i></p>
+                                                </li>
+                                            </ul>
 
                                             {% empty %}
                                                 <p>No contributions yet.</p>
@@ -198,10 +200,14 @@
                     <ul class="list-group">
                         {% for contribution in general_contributions %}
                         <li class="list-group-item">
-                            <strong>{{ contribution.contributor_name }}</strong> contributed <strong>${{ contribution.amount }}</strong>
-                            <p class="mb-0">{{ contribution.message }}</p>
-                            <p class="mb-0">Contact: {{ contribution.contact_info }}</p>
-                            <p><small><i>{{ contribution.date|date:"Y-m-d H:i" }}</i></small></p>
+                            <p class="mb-0">
+                              <strong>{{ contribution.contributor_name }}</strong> says... <i> {{ contribution.message }} </i>
+                                with <strong>${{ contribution.amount }}</strong>
+                            </p>
+                            {% if user == wishlist.user %}
+                                <p class="mb-0">Contact: {{ contribution.contact_info }}</p>
+                            {% endif %}
+                            <p class="mb-0 mt-0" align="right"><small><i>{{ contribution.date|date:"Y-m-d | H:i" }}</i></small></p>
                         </li>
                         {% endfor %}
                     </ul>

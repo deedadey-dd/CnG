@@ -61,45 +61,48 @@
                             </button>
                         </div>
                         <div class="modal-body">
-                            <div id="modalCarousel{{ product.id }}" class="carousel slide" data-ride="carousel">
-                                <div class="carousel-inner">
-                                    {% for image in product.images.all %}
-                                    <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                                        <img src="{{ image.image.url }}" class="d-block w-100 product-image2" alt="{{ product.name }}">
+                            <!-- Two-column Layout -->
+                            <div class="row">
+                                <!-- Left Column: Carousel -->
+                                <div class="col-md-8">
+                                    <div id="modalCarousel{{ product.id }}" class="carousel slide" data-ride="carousel">
+                                        <div class="carousel-inner">
+                                            {% for image in product.images.all %}
+                                            <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                                <img src="{{ image.image.url }}" class="d-block w-100 product-image2" alt="{{ product.name }}">
+                                            </div>
+                                            {% empty %}
+                                            <div class="carousel-item active">
+                                                <img src="{% static 'images/no-image-available.png' %}" class="d-block w-100 product-image" alt="No Image Available">
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        <a class="carousel-control-prev" href="#modalCarousel{{ product.id }}" role="button" data-slide="prev">
+                                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                            <span class="sr-only">Previous</span>
+                                        </a>
+                                        <a class="carousel-control-next" href="#modalCarousel{{ product.id }}" role="button" data-slide="next">
+                                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                            <span class="sr-only">Next</span>
+                                        </a>
                                     </div>
-                                    {% empty %}
-                                    <div class="carousel-item active">
-                                        <img src="{% static 'images/no-image-available.png' %}" class="d-block w-100 product-image" alt="No Image Available">
-                                    </div>
-                                    {% endfor %}
                                 </div>
-                                <a class="carousel-control-prev" href="#modalCarousel{{ product.id }}" role="button" data-slide="prev">
-                                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                                    <span class="sr-only">Previous</span>
-                                </a>
-                                <a class="carousel-control-next" href="#modalCarousel{{ product.id }}" role="button" data-slide="next">
-                                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                                    <span class="sr-only">Next</span>
-                                </a>
-                            </div>
 
-                            <!-- Product details in the modal -->
-                            <div class="mt-3">
-                                <h5>Description:</h5>
-                                <p>{{ product.description }}</p>
+                                <!-- Right Column: Product Details -->
+                                <div class="col-md-4">
+                                    <h5>Description:</h5>
+                                    <p>{{ product.description }}</p>
 
-                                <!-- Price and Sale Price -->
-                                <h5>Price: ${{ product.price }}</h5>
-                                {% if product.sale_price and product.is_on_sale %}
-                                <h5>Sale Price: ${{ product.sale_price }}</h5>
-                                {% endif %}
+                                    <!-- Price and Sale Price -->
+                                    <h5>Price: ${{ product.price }}</h5>
+                                    {% if product.sale_price and product.is_on_sale %}
+                                    <h5>Sale Price: ${{ product.sale_price }}</h5>
+                                    {% endif %}
 
-                                <!-- Variant Selection -->
-                                <form id="variantForm{{ product.id }}" method="POST">
-                                    {% csrf_token %}
-
-                                    <div class="row">
-                                        <div class="form-group col-md-6">
+                                    <!-- Variant Selection -->
+                                    <form id="variantForm{{ product.id }}" method="POST">
+                                        {% csrf_token %}
+                                        <div class="form-group">
                                             <label for="colorSelect{{ product.id }}">Color</label>
                                             <select id="colorSelect{{ product.id }}" name="color" class="form-control">
                                                 {% for variant in product.variants.all %}
@@ -107,8 +110,7 @@
                                                 {% endfor %}
                                             </select>
                                         </div>
-
-                                        <div class="form-group col-md-6">
+                                        <div class="form-group">
                                             <label for="sizeSelect{{ product.id }}">Size</label>
                                             <select id="sizeSelect{{ product.id }}" name="size" class="form-control">
                                                 {% for variant in product.variants.all %}
@@ -116,11 +118,18 @@
                                                 {% endfor %}
                                             </select>
                                         </div>
-                                    </div>
 
-                                    <!-- Show buttons based on user role -->
-                                    {% if user.is_authenticated and user.role != 'vendor' %}
-                                        <!-- Add to Wishlist -->
+                                        <!-- Add to Cart and Purchase Options -->
+                                        <div class="mt-3">
+                                            <a href="#" class="btn btn-primary btn-block">Buy Item</a>
+                                            <button type="button" class="btn btn-secondary btn-block" data-toggle="modal" data-target="#giftItemModal{{ product.id }}">
+                                                Gift Item
+                                            </button>
+                                            <a href="#" class="btn btn-warning btn-block">Add to Cart</a>
+                                        </div>
+
+                                        <!-- Wishlist Dropdown -->
+                                        {% if user.is_authenticated and user.role != 'vendor' %}
                                         <div class="dropdown mt-2">
                                             <button class="btn btn-success dropdown-toggle btn-block" type="button" id="wishlistDropdown{{ product.id }}" data-toggle="dropdown" aria-expanded="false">
                                                 Add to Wishlist
@@ -137,20 +146,12 @@
                                                 {% endif %}
                                             </ul>
                                         </div>
-                                    {% endif %}
+                                        {% endif %}
 
-                                    <!-- Add to Cart and Purchase Options -->
-                                    <div class="mt-3">
-                                        <a href="#" class="btn btn-primary">Buy Item</a>
-                                        <button type="button" class="btn btn-secondary" data-toggle="modal" data-target="#giftItemModal{{ product.id }}">
-                                            Gift Item
-                                        </button>
-                                        <a href="#" class="btn btn-warning">Add to Cart</a>
-                                    </div>
-
-                                    <!-- Vendor Details -->
-                                    <h5>Store: <a href="{% url 'vendor_products' product.vendor.id %}">{{ product.vendor.vendor_profile.company_name }}</a></h5>
-                                </form>
+                                        <!-- Vendor Details -->
+                                        <h5 class="mt-3">Store: <a href="{% url 'vendor_products' product.vendor.id %}">{{ product.vendor.vendor_profile.company_name }}</a></h5>
+                                    </form>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -182,23 +183,23 @@
 
                             <!-- Step Two: Payment Form -->
                             <div id="step2{{ product.id }}" style="display: none;">
-                                <p>Product ID: {{ product.id }}</p>
+<!--                                <p>Product ID: {{ product.id }}</p>-->
                                 <form id="giftPaymentForm{{ product.id }}" action="{% url 'process_gift_payment' product.id %}" method="POST">
                                     {% csrf_token %}
                                     <input type="hidden" name="receiver_id" id="receiverId{{ product.id }}">
                                     <input type="hidden" name="wishlist_id" id="receiverWishlist{{ product.id }}">
 
-                            <div id="wishlistDropdownContainer{{ product.id }}" class="mt-3">
-                                <div class="dropdown">
-                                    <button class="btn btn-success dropdown-toggle btn-block" type="button" id="wishlistDropdown{{ product.id }}" data-toggle="dropdown" aria-expanded="false">
-                                        Select Wishlist
-                                    </button>
-                                    <ul class="dropdown-menu" id="wishlistDropdownMenu{{ product.id }}" aria-labelledby="wishlistDropdown{{ product.id }}">
-                                        <!-- Options will be dynamically added here -->
-                                        <li><span class="dropdown-item">Loading...</span></li>
-                                    </ul>
-                                </div>
-                            </div>
+                                    <div id="wishlistDropdownContainer{{ product.id }}" class="mt-3">
+                                        <div class="dropdown">
+                                            <button class="btn btn-success dropdown-toggle btn-block" type="button" id="wishlistDropdown{{ product.id }}" data-toggle="dropdown" aria-expanded="false">
+                                                Select Wishlist
+                                            </button>
+                                            <ul class="dropdown-menu" id="wishlistDropdownMenu{{ product.id }}" aria-labelledby="wishlistDropdown{{ product.id }}">
+                                                <!-- Options will be dynamically added here -->
+                                                <li><span class="dropdown-item">Loading...</span></li>
+                                            </ul>
+                                        </div>
+                                    </div>
 
 
                                     <div class="form-group">

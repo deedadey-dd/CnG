@@ -196,11 +196,20 @@ def create_wishlist(request):
         expiry_date = request.POST.get('expiry_date', None)
 
         wishlist_service = WishlistService(request.user)
-        wishlist = wishlist_service.create_wishlist(
-            title=title, description=description, privacy=privacy, expiry_date=expiry_date
-        )
-        messages.success(request, f'Wishlist "{wishlist.title}" created successfully!')
-        return redirect('view_wishlist', wishlist_id=wishlist.id)
+
+        try:
+            # Attempt to create the wishlist
+            wishlist = wishlist_service.create_wishlist(
+                title=title,
+                description=description,
+                privacy=privacy,
+                expiry_date=expiry_date,
+            )
+            messages.success(request, f'Wishlist "{wishlist.title}" created successfully!')
+            return redirect('view_wishlist', wishlist_id=wishlist.id)
+        except ValidationError as e:
+            # Display the error message
+            messages.error(request, str(e))
 
     return render(request, 'synergy_mall/create_wishlist.html')
 
@@ -1106,17 +1115,29 @@ def process_gift_payment(request, product_id):
         wishlist_id = request.POST.get('wishlist_id')
 
         if form.is_valid():
-            giver_contact = form.cleaned_data['giver_contact']
+            giver_provided_contact = form.cleaned_data['giver_contact']
             message_to_receiver = form.cleaned_data['message_to_receiver']
             receiver = get_object_or_404(User, id=receiver_id)
             wishlist = Wishlist.objects.filter(user=receiver, title="General List").first() if not wishlist_id else Wishlist.objects.get(id=wishlist_id)
+            giver = None
+
+            # Handle giver information
+            if request.user.is_authenticated:
+                giver = request.user
+                giver_contact = f"{giver.first_name} {giver.last_name} - {giver.email}"  # Prepopulate contact info
+            else:
+                giver_contact = giver_provided_contact  # No giver object for unauthenticated users
+                if not giver_provided_contact:
+                    return JsonResponse(
+                        {'success': False, 'message': 'Contact information is required for unauthenticated users'},
+                        status=400)
 
             if wishlist:
-                # Ensure the gift product is fully paid here (payment processing omitted)
+                # TODO Ensure the gift product is fully paid here (payment processing omitted)
 
                 # Record the gift in the Gift model
                 Gift.objects.create(
-                    giver=request.user,
+                    giver=giver,
                     receiver=receiver,
                     product=product,
                     wishlist=wishlist,
