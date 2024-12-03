@@ -207,6 +207,15 @@
                                         <input type="text" id="giverContact{{ product.id }}" name="giver_contact" class="form-control" required>
                                     </div>
 
+                                    <!-- Amount to be Given -->
+                                    <div class="form-group">
+                                        <label for="amountGiven{{ product.id }}">Amount to Give</label>
+                                        <input type="number" id="amountGiven{{ product.id }}" name="amount_given" class="form-control" min="{{ product.price }}" required placeholder="Enter amount to give">
+                                        <small class="form-text text-muted">
+                                            The amount must be at least ${{ product.price }}.
+                                        </small>
+                                    </div>
+
                                     <div class="form-group">
                                         <label for="messageToReceiver{{ product.id }}">Message to Receiver</label>
                                         <textarea id="messageToReceiver{{ product.id }}" name="message_to_receiver" class="form-control"></textarea>
@@ -341,6 +350,7 @@
 
         console.log(`Selected Wishlist: ${wishlistTitle} (ID: ${wishlistId})`);
     }
+
 
 </script>
 

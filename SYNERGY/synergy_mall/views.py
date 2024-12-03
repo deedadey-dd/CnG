@@ -1118,6 +1118,9 @@ def process_gift_payment(request, product_id):
             giver_provided_contact = form.cleaned_data['giver_contact']
             message_to_receiver = form.cleaned_data['message_to_receiver']
             receiver = get_object_or_404(User, id=receiver_id)
+            amount_given = form.cleaned_data['amount_given']
+            print(amount_given)
+            print(type(amount_given))
             wishlist = Wishlist.objects.filter(user=receiver, title="General List").first() if not wishlist_id else Wishlist.objects.get(id=wishlist_id)
             giver = None
 
@@ -1133,6 +1136,17 @@ def process_gift_payment(request, product_id):
                         status=400)
 
             if wishlist:
+                if amount_given < product.price:
+                    return JsonResponse(
+                        {'success': False, 'message': 'Amount must be at least the price of the product'}, status=400)
+
+                surplus = amount_given - product.price
+
+                # Add surplus to receiver's cash on hand
+                if surplus > 0:
+                    receiver.profile.cash_on_hand += surplus
+                    receiver.profile.save()
+
                 # TODO Ensure the gift product is fully paid here (payment processing omitted)
 
                 # Record the gift in the Gift model
@@ -1142,6 +1156,7 @@ def process_gift_payment(request, product_id):
                     product=product,
                     wishlist=wishlist,
                     giver_contact=giver_contact,
+                    amount_given = amount_given,
                     message_to_receiver=message_to_receiver,
                 )
 
