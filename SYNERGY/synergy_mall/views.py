@@ -1124,7 +1124,7 @@ def process_gift_payment(request, product_id):
             # Handle giver information
             if request.user.is_authenticated:
                 giver = request.user
-                giver_contact = f"{giver.first_name} {giver.last_name} - {giver.email}"  # Prepopulate contact info
+                giver_contact = f"{giver.first_name} {giver.surname} - {giver.email}"  # Prepopulate contact info
             else:
                 giver_contact = giver_provided_contact  # No giver object for unauthenticated users
                 if not giver_provided_contact:
@@ -1167,4 +1167,4 @@ def received_gifts(request):
     # Fetch all gifts for the logged-in user
     gifts = Gift.objects.filter(receiver=request.user).select_related('giver', 'product', 'wishlist')
 
-    return render(request, 'gifts/received_gifts.html', {'gifts': gifts})
+    return render(request, 'synergy_mall/received_gifts.html', {'gifts': gifts})

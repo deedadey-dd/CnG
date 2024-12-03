@@ -18,7 +18,7 @@
             {% for gift in gifts %}
                 <tr>
                     <td>{{ gift.product.name }}</td>
-                    <td>{{ gift.giver.get_full_name if gift.giver else "Anonymous" }}</td>
+                    <td>{{ gift.giver }}</td>
                     <td>{{ gift.giver_contact }}</td>
                     <td>${{ gift.amount_given }}</td>
                     <td>{{ gift.message_to_receiver }}</td>
