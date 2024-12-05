@@ -197,7 +197,7 @@
                         </button>
                     </div>
                     <div class="modal-body">
-                        {% if cart.cartitem_set.all %}
+                        {% if cart and cart.items.all %}
                         <table class="table">
                             <thead>
                                 <tr>
@@ -209,7 +209,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for item in cart.cartitem_set.all %}
+                                {% for item in cart.items.all %}
                                 <tr>
                                     <td>{{ item.product.name }}</td>
                                     <td>{{ item.quantity }}</td>
@@ -228,6 +228,7 @@
                         <p>Your cart is empty!</p>
                         {% endif %}
                     </div>
+
             </div>
         </div>
     </div>
@@ -317,54 +318,90 @@
         e.preventDefault();
     });
 
-    document.getElementById('cartModal').addEventListener('show.bs.modal', function () {
-    fetch('/cart/items/')
-        .then(response => {
-            if (!response.ok) throw new Error("Failed to fetch cart items.");
-            return response.json();
+    // Add an item to the cart
+    function addToCart(productId) {
+        fetch(`/cart/add/${productId}/`, {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": "{{ csrf_token }}",
+                "Content-Type": "application/json",
+            },
         })
+        .then(response => response.json())
         .then(data => {
-            const cartContent = document.getElementById('cart-content');
             if (data.success) {
-                if (data.cart_items.length === 0) {
-                    cartContent.innerHTML = "<p>Your cart is empty.</p>";
-                } else {
-                    let html = '<table class="table">';
-                    html += `
-                        <thead>
-                            <tr>
-                                <th>Product</th>
-                                <th>Quantity</th>
-                                <th>Price</th>
-                                <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                    `;
-                    data.cart_items.forEach(item => {
-                        html += `
-                            <tr>
-                                <td>${item.product_name}</td>
-                                <td>${item.quantity}</td>
-                                <td>$${item.price}</td>
-                                <td>$${item.total_price}</td>
-                            </tr>
-                        `;
-                    });
-                    html += '</tbody></table>';
-                    cartContent.innerHTML = html;
+                // Update the floating cart counter
+                const cartBadge = document.querySelector("#floating-cart .badge");
+                if (cartBadge) {
+                    cartBadge.textContent = data.cart_item_count;
                 }
+
+                // Refresh the cart modal content
+                fetchCartItems();
+
+                // Optionally, show a success message
+                alert(data.message);
             } else {
-                cartContent.innerHTML = `<p>${data.message}</p>`;
+                alert("Failed to add item to the cart.");
             }
         })
-        .catch(error => {
-            console.error('Error fetching cart items:', error);
-            document.getElementById('cart-content').innerHTML = "<p>Failed to load cart items.</p>";
-        });
-});
+        .catch(error => console.error("Error adding to cart:", error));
+    }
 
+    // Fetch and update cart modal content
+    function fetchCartItems() {
+        fetch('/cart/items/')
+            .then(response => {
+                if (!response.ok) throw new Error("Failed to fetch cart items.");
+                return response.json();
+            })
+            .then(data => {
+                const cartContent = document.getElementById('cart-content');
+                if (data.success) {
+                    if (data.cart_items.length === 0) {
+                        cartContent.innerHTML = "<p>Your cart is empty.</p>";
+                    } else {
+                        let html = '<table class="table">';
+                        html += `
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Quantity</th>
+                                    <th>Price</th>
+                                    <th>Total</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                        `;
+                        data.cart_items.forEach(item => {
+                            html += `
+                                <tr>
+                                    <td>${item.product_name}</td>
+                                    <td>${item.quantity}</td>
+                                    <td>$${item.price}</td>
+                                    <td>$${item.total_price}</td>
+                                    <td>
+                                        <a href="/cart/remove/${item.id}/" class="btn btn-danger btn-sm">Remove</a>
+                                    </td>
+                                </tr>
+                            `;
+                        });
+                        html += '</tbody></table>';
+                        cartContent.innerHTML = html;
+                    }
+                } else {
+                    cartContent.innerHTML = `<p>${data.message}</p>`;
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching cart items:', error);
+                document.getElementById('cart-content').innerHTML = "<p>Failed to load cart items.</p>";
+            });
+    }
 
+    // Fetch cart items whenever the cart modal is shown
+    document.getElementById('cartModal').addEventListener('show.bs.modal', fetchCartItems);
 </script>
 
 </body>

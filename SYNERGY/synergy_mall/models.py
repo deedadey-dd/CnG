@@ -281,28 +281,45 @@ class Order(models.Model):
 
 # Cart Model
 class Cart(models.Model):
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('checked_out', 'Checked Out'),
+        ('abandoned', 'Abandoned'),
+    ]
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     session_key = models.CharField(max_length=255, blank=True, null=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
 
     def get_total_price(self):
-        """Calculate the total price of all items in the cart."""
-        return sum(item.get_total_price() for item in self.cartitem_set.all())
+        return sum(item.get_total_price() for item in self.items.all())
 
     def __str__(self):
-        return f"Cart ({self.user.username if self.user else 'Anonymous'})"
+        if self.user:
+            return f"Cart (User: {self.user.username}, Status: {self.status})"
+        elif self.session_key:
+            return f"Cart (Session: {self.session_key}, Status: {self.status})"
+        return f"Cart (No Owner, Status: {self.status})"
 
 
-# Cart Item Model
 class CartItem(models.Model):
-    cart = models.ForeignKey(Cart, on_delete=models.CASCADE)
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name="items")
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1)
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
     def get_total_price(self):
         return self.price * self.quantity
 
     def __str__(self):
-        return f"{self.quantity} x {self.product.name}"
+        return f"{self.quantity} x {self.product.name} @ {self.price}"
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(check=models.Q(quantity__gte=1), name="cartitem_quantity_positive"),
+        ]
 

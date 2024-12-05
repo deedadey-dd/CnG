@@ -23,7 +23,7 @@ from .wishlist import WishlistService
 from django.db.models import Q, Count
 from django.utils import timezone
 from .forms import ProductForm, InventoryProductForm, FeaturedAndAvailableForm, CategoryForm, BulkCategoryUploadForm, \
-    BulkProductUploadForm, ProductVariantForm, GiftPaymentForm
+    BulkProductUploadForm, ProductVariantForm, GiftPaymentForm, GuestCheckoutForm
 
 
 # Helper function to check if user is vendor
@@ -1097,16 +1097,16 @@ def get_cart_items(request):
             "price": str(item.price),
             "total_price": str(item.get_total_price()),
         }
-        for item in cart.cartitem_set.all()
+        for item in cart.items.all()
     ]
     return JsonResponse({"success": True, "cart_items": cart_items})
 
 
 def get_cart(request):
-    """Retrieve the cart for the current user or session."""
+    """Retrieve or create the cart for the current user or session."""
     if request.user.is_authenticated:
-        # Fetch the cart for the authenticated user
-        return Cart.objects.filter(user=request.user).first()
+        # Fetch or create a cart for the authenticated user
+        cart, created = Cart.objects.get_or_create(user=request.user)
     else:
         # Use session_key for unauthenticated users
         session_key = request.session.session_key
@@ -1114,16 +1114,20 @@ def get_cart(request):
             # Create a session if one does not exist
             request.session.create()
             session_key = request.session.session_key
-        return Cart.objects.filter(session_key=session_key).first()
+        # Fetch or create a cart for the session
+        cart, created = Cart.objects.get_or_create(session_key=session_key)
+
+    return cart
 
 
-@login_required
 def add_to_cart(request, product_id):
     product = get_object_or_404(Product, id=product_id)
-    cart, created = Cart.objects.get_or_create(user=request.user)
+    cart = get_cart(request)  # Get the appropriate cart for the user or guest
 
-    # Check if the product is already in the cart
-    cart_item, created = CartItem.objects.get_or_create(cart=cart, product=product, price=product.price)
+    # Add or update the cart item
+    cart_item, created = CartItem.objects.get_or_create(
+        cart=cart, product=product, defaults={"price": product.price, "quantity": 1}
+    )
     if not created:
         cart_item.quantity += 1
         cart_item.save()
@@ -1132,7 +1136,7 @@ def add_to_cart(request, product_id):
     return JsonResponse({
         "success": True,
         "message": f"{product.name} was added to your cart.",
-        "cart_item_count": cart.cartitem_set.count(),
+        "cart_item_count": cart.items.count(),
     })
 
 
@@ -1146,7 +1150,7 @@ def remove_from_cart(request, item_id):
 @login_required
 def create_order(request):
     cart = get_object_or_404(Cart, user=request.user)
-    cart_items = cart.cartitem_set.all()
+    cart_items = cart.items.all()
 
     if not cart_items:
         return redirect('view_cart')
@@ -1161,7 +1165,7 @@ def create_order(request):
         )
 
     # Clear the cart after order creation
-    cart.cartitem_set.all().delete()
+    cart.items.all().delete()
     return redirect('view_orders')
 
 
@@ -1180,6 +1184,30 @@ def get_cart(request):
 def view_orders(request):
     orders = Order.objects.filter(user=request.user).order_by('-order_date')
     return render(request, 'synergy_mall/orders.html', {'orders': orders})
+
+
+def checkout(request):
+    cart = get_cart(request)
+
+    if request.method == "POST":
+        form = GuestCheckoutForm(request.POST)
+        if form.is_valid():
+            # Create orders for each cart item
+            for item in cart.items.all():
+                Order.objects.create(
+                    user=request.user if request.user.is_authenticated else None,
+                    product=item.product,
+                    quantity=item.quantity,
+                    total_price=item.get_total_price(),
+                    status="pending",
+                )
+            # Clear the cart
+            cart.items.all().delete()
+            return redirect("order_success")
+    else:
+        form = GuestCheckoutForm()
+
+    return render(request, "synergy_mall/checkout.html", {"cart": cart, "form": form})
 
 
 # ############# GIFTING AN ITEM ##############

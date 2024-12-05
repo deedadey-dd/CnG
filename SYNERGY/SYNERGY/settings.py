@@ -83,6 +83,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'synergy_mall.context_processors.cart_items_count',
+                'synergy_mall.context_processors.cart_context',
             ],
         },
     },

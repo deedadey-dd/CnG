@@ -3,7 +3,7 @@
 {% block content %}
 
 <h2>Your Cart</h2>
-{% if cart.cartitem_set.all %}
+{% if cart.items.all %}
 <table class="table">
     <thead>
         <tr>
@@ -15,7 +15,7 @@
         </tr>
     </thead>
     <tbody>
-        {% for item in cart.cartitem_set.all %}
+        {% for item in cart.items.all %}
         <tr>
             <td>{{ item.product.name }}</td>
             <td>{{ item.quantity }}</td>

@@ -206,3 +206,9 @@ class GiftPaymentForm(forms.ModelForm):
     class Meta:
         model = Gift
         fields = ['giver_contact', 'message_to_receiver']
+
+
+class GuestCheckoutForm(forms.Form):
+    name = forms.CharField(max_length=255, required=True)
+    email = forms.EmailField(required=True)
+    shipping_address = forms.CharField(widget=forms.Textarea, required=True)
