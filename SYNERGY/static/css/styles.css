@@ -329,7 +329,7 @@ body.theme-light .list-group-item {
 /* Floating Plus Button */
 .floating-plus-btn {
     position: fixed;
-    bottom: 20px;
+    bottom: 100px;
     right: 20px;
     width: 56px;
     height: 56px;
@@ -341,7 +341,7 @@ body.theme-light .list-group-item {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
     transition: transform 0.2s, box-shadow 0.2s;
     text-decoration: none;
-    z-index: 1000; /* Ensure it floats above other elements */
+    z-index: 1100; /* Ensure it floats above other elements */
 }
 
 .floating-plus-btn:hover {

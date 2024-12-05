@@ -60,6 +60,9 @@
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'my_wishlists' %}">My Wishlists</a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'view_cart' %}">Cart</a>
+                        </li>
 
                         <!-- Display User's Coin Balance for Regular Users -->
                         <li class="nav-item">
@@ -174,9 +177,8 @@
         <button class="btn btn-primary rounded-circle" data-toggle="modal" data-target="#cartModal"
                 style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; position: relative;">
             <!-- Cart SVG Icon -->
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="white" viewBox="0 0 24 24">
-                <path d="M7 4h-2l-3 7v10c0 1.104.896 2 2 2h14c1.104 0 2-.896 2-2v-10l-3-7h-2m0-2h-10v2h10v-2zm-7 14v-2h-3v-3h3v-2h2v2h3v3h-3v2h-2z"/>
-            </svg>
+            <img src="{% static 'images/cart.svg' %}" alt="Cart Icon" width="40" height="40">
+
             {% if cart_items_count > 0 %}
             <!-- Badge Counter -->
             <span class="badge badge-danger" style="position: absolute; top: 5px; right: 5px; border-radius: 50%; padding: 5px 10px; font-size: 12px;">
