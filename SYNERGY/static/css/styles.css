@@ -376,3 +376,18 @@ body.theme-light .list-group-item {
     opacity: 1; /* Show tooltip on hover */
 }
 
+#floating-cart button {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#floating-cart button:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.2);
+}
+
+.badge-danger {
+    background-color: #ff5e57; /* Red badge */
+    color: white;
+}
+

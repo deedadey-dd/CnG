@@ -62,7 +62,7 @@ class ProductVariant(models.Model):
         """
         if self.product.is_on_sale():
             return self.sale_price if self.sale_price else self.product.get_sale_price()
-        return self.price if self.price else self.product.price
+        return self.price if self.price else self.product.pripyce
 
     def __str__(self):
         variant_str = f"{self.product.name}"
@@ -90,41 +90,6 @@ class Tag(models.Model):
 
     def __str__(self):
         return self.name
-
-
-# ## ORDER AND CART ##
-class Order(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'user_type': 'regular'})  # Restrict to regular users
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    quantity = models.PositiveIntegerField()
-    total_price = models.DecimalField(max_digits=10, decimal_places=2)
-    status = models.CharField(max_length=50, choices=[('pending', 'Pending'), ('shipped', 'Shipped'), ('delivered', 'Delivered')])
-    order_date = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"Order by {self.user.username} for {self.product.name}"
-
-
-class Cart(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
-    session_key = models.CharField(max_length=255, blank=True, null=True, db_index=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"Cart ({self.user if self.user else 'Anonymous'})"
-
-
-class CartItem(models.Model):
-    cart = models.ForeignKey(Cart, on_delete=models.CASCADE)
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    quantity = models.PositiveIntegerField(default=1)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-
-    def get_total_price(self):
-        return self.price * self.quantity
-
-    def __str__(self):
-        return f"{self.quantity} x {self.product.name}"
 
 
 # ## WISHLIST MODELS ##
@@ -279,4 +244,65 @@ class Gift(models.Model):
 
     def __str__(self):
         return f"Gift of {self.product.name} from {self.giver or 'Unauthenticated User'} to {self.receiver}"
+
+
+# ## ORDER AND CART ##
+
+# Order Model
+class Order(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('shipped', 'Shipped'),
+        ('delivered', 'Delivered'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'user_type': 'regular'})
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField()
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='pending')
+    order_date = models.DateTimeField(auto_now_add=True)
+    payment_status = models.BooleanField(default=False)  # Track payment completion
+    shipping_address = models.TextField(blank=True, null=True)
+    billing_address = models.TextField(blank=True, null=True)
+    wishlist_item = models.ForeignKey(
+        WishlistItem,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="order",
+        help_text="The wishlist item associated with this order, if any.",
+    )
+
+    def __str__(self):
+        return f"Order ({self.status}) by {self.user.username} for {self.product.name}"
+
+
+# Cart Model
+class Cart(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    session_key = models.CharField(max_length=255, blank=True, null=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def get_total_price(self):
+        """Calculate the total price of all items in the cart."""
+        return sum(item.get_total_price() for item in self.cartitem_set.all())
+
+    def __str__(self):
+        return f"Cart ({self.user.username if self.user else 'Anonymous'})"
+
+
+# Cart Item Model
+class CartItem(models.Model):
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def get_total_price(self):
+        return self.price * self.quantity
+
+    def __str__(self):
+        return f"{self.quantity} x {self.product.name}"
 

@@ -166,21 +166,72 @@
             <p>User: {{ user.username }}</p>
             <p>Is Vendor: {{ user.is_vendor }}</p>
 
-
-        <!-- Floating Cart Icon (at the bottom right of the page) -->
-        <div id="floating-cart" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
-            <a href="{% url 'cart_detail' %}" class="btn btn-primary rounded-circle" style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; position: relative;">
-                <i class="fa fa-shopping-cart fa-lg"></i>
-                {% if cart_items_count > 0 %}
-                <span class="badge badge-danger" style="position: absolute; top: 0; right: 0; border-radius: 50%; padding: 5px 10px; font-size: 12px;">
-                    {{ cart_items_count }}
-                </span>
-                {% endif %}
-            </a>
-        </div>
-
         {% endblock %}
     </div>
+
+    <!-- Floating Cart Icon -->
+    <div id="floating-cart" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
+        <button class="btn btn-primary rounded-circle" data-toggle="modal" data-target="#cartModal"
+                style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; position: relative;">
+            <!-- Cart SVG Icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="white" viewBox="0 0 24 24">
+                <path d="M7 4h-2l-3 7v10c0 1.104.896 2 2 2h14c1.104 0 2-.896 2-2v-10l-3-7h-2m0-2h-10v2h10v-2zm-7 14v-2h-3v-3h3v-2h2v2h3v3h-3v2h-2z"/>
+            </svg>
+            {% if cart_items_count > 0 %}
+            <!-- Badge Counter -->
+            <span class="badge badge-danger" style="position: absolute; top: 5px; right: 5px; border-radius: 50%; padding: 5px 10px; font-size: 12px;">
+                {{ cart_items_count }}
+            </span>
+            {% endif %}
+        </button>
+    </div>
+
+    <!-- Cart Modal -->
+        <div class="modal fade" id="cartModal" tabindex="-1" role="dialog" aria-labelledby="cartModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="cartModalLabel">Your Cart</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        {% if cart.cartitem_set.all %}
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Quantity</th>
+                                    <th>Price</th>
+                                    <th>Total</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in cart.cartitem_set.all %}
+                                <tr>
+                                    <td>{{ item.product.name }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>${{ item.price }}</td>
+                                    <td>${{ item.get_total_price }}</td>
+                                    <td>
+                                        <a href="{% url 'remove_from_cart' item.id %}" class="btn btn-danger btn-sm">Remove</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        <p class="text-right"><strong>Total: ${{ cart.get_total_price }}</strong></p>
+                        <a href="{% url 'create_order' %}" class="btn btn-primary btn-block">Checkout</a>
+                        {% else %}
+                        <p>Your cart is empty!</p>
+                        {% endif %}
+                    </div>
+            </div>
+        </div>
+    </div>
+
 
 
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
@@ -265,6 +316,55 @@
         e.stopPropagation();
         e.preventDefault();
     });
+
+    document.getElementById('cartModal').addEventListener('show.bs.modal', function () {
+    fetch('/cart/items/')
+        .then(response => {
+            if (!response.ok) throw new Error("Failed to fetch cart items.");
+            return response.json();
+        })
+        .then(data => {
+            const cartContent = document.getElementById('cart-content');
+            if (data.success) {
+                if (data.cart_items.length === 0) {
+                    cartContent.innerHTML = "<p>Your cart is empty.</p>";
+                } else {
+                    let html = '<table class="table">';
+                    html += `
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Quantity</th>
+                                <th>Price</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                    `;
+                    data.cart_items.forEach(item => {
+                        html += `
+                            <tr>
+                                <td>${item.product_name}</td>
+                                <td>${item.quantity}</td>
+                                <td>$${item.price}</td>
+                                <td>$${item.total_price}</td>
+                            </tr>
+                        `;
+                    });
+                    html += '</tbody></table>';
+                    cartContent.innerHTML = html;
+                }
+            } else {
+                cartContent.innerHTML = `<p>${data.message}</p>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching cart items:', error);
+            document.getElementById('cart-content').innerHTML = "<p>Failed to load cart items.</p>";
+        });
+});
+
+
 </script>
 
 </body>
