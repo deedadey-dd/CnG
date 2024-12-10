@@ -212,3 +212,10 @@ class GuestCheckoutForm(forms.Form):
     name = forms.CharField(max_length=255, required=True)
     email = forms.EmailField(required=True)
     shipping_address = forms.CharField(widget=forms.Textarea, required=True)
+
+
+class CheckoutForm(forms.Form):
+    name = forms.CharField(max_length=255, required=True)
+    email = forms.EmailField(required=True)
+    phone = forms.CharField(max_length=15, required=True)
+    address = forms.CharField(widget=forms.Textarea, required=True)

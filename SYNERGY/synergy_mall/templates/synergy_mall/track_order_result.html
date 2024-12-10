@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+
+    <h2>Order Details</h2>
+    <p><strong>Order Number:</strong> {{ order.order_number }}</p>
+    <p><strong>Status:</strong> {{ order.status }}</p>
+
+    <div class="mt-3">
+        <h3>Product Details</h3>
+        <p><strong>Product Name:</strong> {{ order.product.name }}</p>
+        <p><strong>Quantity:</strong> {{ order.quantity }}</p>
+        <p><strong>Price per Item:</strong> ${{ order.product.price }}</p>
+        <p><strong>Total Price:</strong> ${{ order.total_price }}</p>
+    </div>
+
+    <div class="mt-3">
+        <h3>Order Timeline</h3>
+        <ul>
+            <li><strong>Ordered At:</strong> {{ order.order_date }}</li>
+            {% if order.shipped_at %}
+            <li><strong>Shipped At:</strong> {{ order.shipped_at }}</li>
+            {% endif %}
+            {% if order.delivered_at %}
+            <li><strong>Delivered At:</strong> {{ order.delivered_at }}</li>
+            {% endif %}
+            {% if order.cancelled_at %}
+            <li><strong>Cancelled At:</strong> {{ order.cancelled_at }}</li>
+            {% endif %}
+        </ul>
+    </div>
+
+    <a href="{% url 'track_order' %}" class="btn btn-secondary">Track Another Order</a>
+
+</div>
+{% endblock %}

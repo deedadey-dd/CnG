@@ -172,6 +172,8 @@
         {% endblock %}
     </div>
 
+    <div id="message-container" class="position-fixed top-0 start-50 translate-middle-x mt-3" style="z-index: 1050;"></div>
+
     <!-- Floating Cart Icon -->
     <div id="floating-cart" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
         <button class="btn btn-primary rounded-circle" data-toggle="modal" data-target="#cartModal"
@@ -181,9 +183,9 @@
 
             {% if cart_items_count > 0 %}
             <!-- Badge Counter -->
-            <span class="badge badge-danger" style="position: absolute; top: 5px; right: 5px; border-radius: 50%; padding: 5px 10px; font-size: 12px;">
-                {{ cart_items_count }}
-            </span>
+                <span class="badge badge-danger" style="position: absolute; top: 5px; right: 5px; border-radius: 50%; padding: 5px 10px; font-size: 12px;">
+                    {{ cart_items_count }}
+                </span>
             {% endif %}
         </button>
     </div>
@@ -199,36 +201,38 @@
                         </button>
                     </div>
                     <div class="modal-body">
-                        {% if cart and cart.items.all %}
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Product</th>
-                                    <th>Quantity</th>
-                                    <th>Price</th>
-                                    <th>Total</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in cart.items.all %}
-                                <tr>
-                                    <td>{{ item.product.name }}</td>
-                                    <td>{{ item.quantity }}</td>
-                                    <td>${{ item.price }}</td>
-                                    <td>${{ item.get_total_price }}</td>
-                                    <td>
-                                        <a href="{% url 'remove_from_cart' item.id %}" class="btn btn-danger btn-sm">Remove</a>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                        <p class="text-right"><strong>Total: ${{ cart.get_total_price }}</strong></p>
-                        <a href="{% url 'create_order' %}" class="btn btn-primary btn-block">Checkout</a>
-                        {% else %}
-                        <p>Your cart is empty!</p>
-                        {% endif %}
+                        <div id="cart-content">
+                            {% if cart and cart.items.all %}
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Product</th>
+                                            <th>Quantity</th>
+                                            <th>Price</th>
+                                            <th>Total</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in cart.items.all %}
+                                        <tr>
+                                            <td>{{ item.product.name }}</td>
+                                            <td>{{ item.quantity }}</td>
+                                            <td>${{ item.price }}</td>
+                                            <td>${{ item.get_total_price }}</td>
+                                            <td>
+                                                <button class="btn btn-danger btn-sm" onclick="removeFromCart({{ item.id }})">Remove</button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                                <p class="text-right"><strong>Total: ${{ cart.get_total_price }}</strong></p>
+                                <a href="{% url 'create_order' %}" class="btn btn-primary btn-block">Checkout</a>
+                            {% else %}
+                                <p>Your cart is empty!</p>
+                            {% endif %}
+                        </div>
                     </div>
 
             </div>
@@ -236,175 +240,222 @@
     </div>
 
 
-
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 
     <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // Load saved theme or set based on system preference
-        const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-        document.body.className = `theme-${savedTheme}`;
-        updateNavbarTheme();
-        updateThemeIcon(savedTheme);
-    });
-
-    function setTheme(theme) {
-        if (theme === 'device') {
-            localStorage.removeItem('theme');
-            document.body.className = 'theme-' + (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-        } else {
-            localStorage.setItem('theme', theme);
-            document.body.className = 'theme-' + theme;
-        }
-        updateNavbarTheme();
-        updateThemeIcon(theme);
-    }
-
-    function toggleTheme() {
-        const currentTheme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        document.body.className = `theme-${newTheme}`;
-        localStorage.setItem('theme', newTheme);
-        updateNavbarTheme();
-        updateThemeIcon(newTheme);
-    }
-
-    function updateNavbarTheme() {
-        const theme = document.body.className;
-        const navbar = document.querySelector('.navbar');
-        if (theme === 'theme-dark') {
-            navbar.classList.add('navbar-dark', 'bg-dark');
-            navbar.classList.remove('navbar-light', 'bg-light');
-        } else {
-            navbar.classList.add('navbar-light', 'bg-light');
-            navbar.classList.remove('navbar-dark', 'bg-dark');
-        }
-    }
-
-    function updateThemeIcon(theme) {
-        const themeIcon = document.getElementById('themeIcon');
-        const iconPath = theme === 'dark' ? "{% static 'images/sun.svg' %}" : "{% static 'images/moon.svg' %}";
-        themeIcon.src = iconPath;
-        themeIcon.alt = theme === 'dark' ? "Dark Mode" : "Light Mode";
-    }
-
-    // Update modal theme based on body theme
-    function updateModalTheme() {
-        const modals = document.querySelectorAll('.modal-content');
-        modals.forEach(modal => {
-            if (document.body.classList.contains('theme-dark')) {
-                modal.classList.add('theme-dark');
-                modal.classList.remove('theme-light');
-            } else {
-                modal.classList.add('theme-light');
-                modal.classList.remove('theme-dark');
-            }
-        });
-    }
-
-    // Listen for system theme changes
-    window.matchMedia('(prefers-color-scheme: dark)').addListener(e => {
-        if (!localStorage.getItem('theme')) {
-            document.body.className = 'theme-' + (e.matches ? 'dark' : 'light');
+        document.addEventListener('DOMContentLoaded', () => {
+            // Load saved theme or set based on system preference
+            const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.body.className = `theme-${savedTheme}`;
             updateNavbarTheme();
-            updateThemeIcon(e.matches ? 'dark' : 'light');
-        }
-    });
+            updateThemeIcon(savedTheme);
 
-    // jQuery for handling dropdown submenu
-    $('.dropdown-submenu .dropdown-toggle').on('click', function(e) {
-        $(this).next('.dropdown-menu').toggle();
-        e.stopPropagation();
-        e.preventDefault();
-    });
-
-    // Add an item to the cart
-    function addToCart(productId) {
-        fetch(`/cart/add/${productId}/`, {
-            method: "POST",
-            headers: {
-                "X-CSRFToken": "{{ csrf_token }}",
-                "Content-Type": "application/json",
-            },
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Update the floating cart counter
-                const cartBadge = document.querySelector("#floating-cart .badge");
-                if (cartBadge) {
-                    cartBadge.textContent = data.cart_item_count;
+            // Listen for system theme changes
+            window.matchMedia('(prefers-color-scheme: dark)').addListener(e => {
+                if (!localStorage.getItem('theme')) {
+                    document.body.className = 'theme-' + (e.matches ? 'dark' : 'light');
+                    updateNavbarTheme();
+                    updateThemeIcon(e.matches ? 'dark' : 'light');
                 }
+            });
 
-                // Refresh the cart modal content
-                fetchCartItems();
+            // Attach unified cart update to modal
+            document.getElementById('cartModal').addEventListener('show.bs.modal', updateCartAndModal);
+        });
 
-                // Optionally, show a success message
-                alert(data.message);
+        function setTheme(theme) {
+            if (theme === 'device') {
+                localStorage.removeItem('theme');
+                document.body.className = 'theme-' + (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
             } else {
-                alert("Failed to add item to the cart.");
+                localStorage.setItem('theme', theme);
+                document.body.className = 'theme-' + theme;
             }
-        })
-        .catch(error => console.error("Error adding to cart:", error));
-    }
+            updateNavbarTheme();
+            updateThemeIcon(theme);
+        }
 
-    // Fetch and update cart modal content
-    function fetchCartItems() {
-        fetch('/cart/items/')
-            .then(response => {
-                if (!response.ok) throw new Error("Failed to fetch cart items.");
-                return response.json();
+        function toggleTheme() {
+            const currentTheme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.body.className = `theme-${newTheme}`;
+            localStorage.setItem('theme', newTheme);
+            updateNavbarTheme();
+            updateThemeIcon(newTheme);
+        }
+
+        function updateNavbarTheme() {
+            const theme = document.body.className;
+            const navbar = document.querySelector('.navbar');
+            if (theme === 'theme-dark') {
+                navbar.classList.add('navbar-dark', 'bg-dark');
+                navbar.classList.remove('navbar-light', 'bg-light');
+            } else {
+                navbar.classList.add('navbar-light', 'bg-light');
+                navbar.classList.remove('navbar-dark', 'bg-dark');
+            }
+        }
+
+        function updateThemeIcon(theme) {
+            const themeIcon = document.getElementById('themeIcon');
+            const iconPath = theme === 'dark' ? "{% static 'images/sun.svg' %}" : "{% static 'images/moon.svg' %}";
+            themeIcon.src = iconPath;
+            themeIcon.alt = theme === 'dark' ? "Dark Mode" : "Light Mode";
+        }
+
+        function addToCart(productId) {
+            fetch(`/cart/add/${productId}/`, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": "{{ csrf_token }}",
+                    "Content-Type": "application/json",
+                },
             })
+            .then(response => response.json())
             .then(data => {
-                const cartContent = document.getElementById('cart-content');
                 if (data.success) {
-                    if (data.cart_items.length === 0) {
-                        cartContent.innerHTML = "<p>Your cart is empty.</p>";
-                    } else {
-                        let html = '<table class="table">';
-                        html += `
-                            <thead>
-                                <tr>
-                                    <th>Product</th>
-                                    <th>Quantity</th>
-                                    <th>Price</th>
-                                    <th>Total</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                        `;
-                        data.cart_items.forEach(item => {
-                            html += `
-                                <tr>
-                                    <td>${item.product_name}</td>
-                                    <td>${item.quantity}</td>
-                                    <td>$${item.price}</td>
-                                    <td>$${item.total_price}</td>
-                                    <td>
-                                        <a href="/cart/remove/${item.id}/" class="btn btn-danger btn-sm">Remove</a>
-                                    </td>
-                                </tr>
-                            `;
-                        });
-                        html += '</tbody></table>';
-                        cartContent.innerHTML = html;
-                    }
+                    displaySuccessMessage(data.message);
+                    updateCartAndModal();
                 } else {
-                    cartContent.innerHTML = `<p>${data.message}</p>`;
+                    displayErrorMessage("Failed to add item to the cart.");
+                }
+            })
+            .catch(error => console.error("Error adding to cart:", error));
+        }
+
+        function removeFromCart(itemId) {
+            fetch(`/cart/remove/${itemId}/`, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": "{{ csrf_token }}",
+                    "Content-Type": "application/json"
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displaySuccessMessage(data.message);
+                    updateCartAndModal();
+                } else {
+                    displayErrorMessage(data.message);
                 }
             })
             .catch(error => {
-                console.error('Error fetching cart items:', error);
-                document.getElementById('cart-content').innerHTML = "<p>Failed to load cart items.</p>";
+                console.error("Error removing item from cart:", error);
+                displayErrorMessage("An unexpected error occurred.");
             });
-    }
+        }
 
-    // Fetch cart items whenever the cart modal is shown
-    document.getElementById('cartModal').addEventListener('show.bs.modal', fetchCartItems);
-</script>
+        function updateCartAndModal() {
+            fetch('/cart/items/')
+                .then(response => {
+                    if (!response.ok) throw new Error("Failed to fetch cart items.");
+                    return response.json();
+                })
+                .then(data => {
+                    // Update floating cart counter
+                    const cartBadge = document.querySelector("#floating-cart .badge");
+
+                    if (cartBadge) {
+                        if (data.cart_item_count > 0) {
+                            // Update the badge count
+                            cartBadge.textContent = data.cart_item_count;
+                            cartBadge.style.display = "inline-block"; // Ensure it's visible
+                        } else {
+                            // Hide the badge if cart is empty
+                            cartBadge.style.display = "none";
+                        }
+                    } else if (data.cart_item_count > 0) {
+                        // If badge doesn't exist, create it
+                        const badge = document.createElement('span');
+                        badge.className = "badge badge-danger";
+                        badge.style.cssText = "position: absolute; top: 5px; right: 5px; border-radius: 50%; padding: 5px 10px; font-size: 12px;";
+                        badge.textContent = data.cart_item_count;
+                        document.querySelector("#floating-cart button").appendChild(badge);
+                    }
+
+                    // Update cart modal content
+                    const cartContent = document.getElementById('cart-content');
+                    if (data.success) {
+                        if (data.cart_items.length === 0) {
+                            cartContent.innerHTML = "<p>Your cart is empty.</p>";
+                        } else {
+                            let html = '<table class="table">';
+                            html += `
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Quantity</th>
+                                        <th>Price</th>
+                                        <th>Total</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                            `;
+                            data.cart_items.forEach(item => {
+                                html += `
+                                    <tr>
+                                        <td>${item.product_name}</td>
+                                        <td>${item.quantity}</td>
+                                        <td>$${item.price}</td>
+                                        <td>$${item.total_price}</td>
+                                        <td>
+                                            <button class="btn btn-danger btn-sm" onclick="removeFromCart(${item.id})">Remove</button>
+                                        </td>
+                                    </tr>
+                                `;
+                            });
+                            html += '</tbody></table>';
+                            html += `<p class="text-right"><strong>Total: $${data.total_price}</strong></p>`;
+                            cartContent.innerHTML = html;
+                        }
+                    } else {
+                        cartContent.innerHTML = `<p>${data.message}</p>`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error updating cart and modal:', error);
+                    document.getElementById('cart-content').innerHTML = "<p>Failed to load cart items.</p>";
+                });
+        }
+
+
+        function displaySuccessMessage(message) {
+            const messageContainer = document.getElementById("message-container");
+            messageContainer.innerHTML = `
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    ${message}
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+            `;
+            autoDismissAlert();
+        }
+
+        function displayErrorMessage(message) {
+            const messageContainer = document.getElementById("message-container");
+            messageContainer.innerHTML = `
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    ${message}
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+            `;
+            autoDismissAlert();
+        }
+
+        function autoDismissAlert() {
+            setTimeout(() => {
+                const alert = document.querySelector(".alert");
+                if (alert) alert.remove();
+            }, 5000); // Auto-dismiss after 5 seconds
+        }
+    </script>
 
 </body>
 </html>

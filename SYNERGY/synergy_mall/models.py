@@ -257,28 +257,35 @@ class Order(models.Model):
         ('cancelled', 'Cancelled'),
     ]
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'user_type': 'regular'})
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    order_number = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    product = models.ForeignKey('Product', on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField()
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='pending')
+    shipping_address = models.TextField()
+    phone_number = models.CharField(max_length=15)
+    email = models.EmailField()
     order_date = models.DateTimeField(auto_now_add=True)
-    payment_status = models.BooleanField(default=False)  # Track payment completion
-    shipping_address = models.TextField(blank=True, null=True)
-    billing_address = models.TextField(blank=True, null=True)
-    wishlist_item = models.ForeignKey(
-        WishlistItem,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="order",
-        help_text="The wishlist item associated with this order, if any.",
-    )
+    shipped_at = models.DateTimeField(null=True, blank=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+
+    def update_status(self, new_status):
+        """Update the order status and set the corresponding timestamp."""
+        self.status = new_status
+        if new_status == 'shipped':
+            self.shipped_at = timezone.now()
+        elif new_status == 'delivered':
+            self.delivered_at = timezone.now()
+        elif new_status == 'cancelled':
+            self.cancelled_at = timezone.now()
+        self.save()
 
     def __str__(self):
-        return f"Order ({self.status}) by {self.user.username} for {self.product.name}"
+        return f"Order #{self.order_number} - {self.product.name}"
 
-
+    
 # Cart Model
 class Cart(models.Model):
     STATUS_CHOICES = [

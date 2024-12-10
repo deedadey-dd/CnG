@@ -6,6 +6,7 @@ import pandas as pd
 from decimal import Decimal
 import requests
 from django.core.exceptions import ValidationError
+from django.core.mail import send_mail
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.core.paginator import Paginator
@@ -23,7 +24,7 @@ from .wishlist import WishlistService
 from django.db.models import Q, Count
 from django.utils import timezone
 from .forms import ProductForm, InventoryProductForm, FeaturedAndAvailableForm, CategoryForm, BulkCategoryUploadForm, \
-    BulkProductUploadForm, ProductVariantForm, GiftPaymentForm, GuestCheckoutForm
+    BulkProductUploadForm, ProductVariantForm, GiftPaymentForm, GuestCheckoutForm, CheckoutForm
 
 
 # Helper function to check if user is vendor
@@ -1070,10 +1071,13 @@ def delete_product(request, product_id):
 
 # ############# CART & ORDERS ################
 
-@login_required
 def view_cart(request):
-    # Get the user's cart
-    cart, created = Cart.objects.get_or_create(user=request.user)
+    # Retrieve the cart based on user or session
+    if request.user.is_authenticated:
+        cart, created = Cart.objects.get_or_create(user=request.user)
+    else:
+        session_key = request.session.session_key or request.session.create()
+        cart, created = Cart.objects.get_or_create(session_key=session_key)
 
     # Calculate total price
     total_price = cart.get_total_price()
@@ -1085,21 +1089,29 @@ def view_cart(request):
 
 
 def get_cart_items(request):
-    """Return the current cart items as JSON."""
-    cart = get_cart(request)
-    if not cart:
-        return JsonResponse({"success": False, "message": "Your cart is empty."})
+    # Retrieve cart items based on user or session
+    if request.user.is_authenticated:
+        cart = Cart.objects.filter(user=request.user).first()
+    else:
+        session_key = request.session.session_key or request.session.create()
+        cart = Cart.objects.filter(session_key=session_key).first()
 
+    if not cart:
+        return JsonResponse({"success": False, "message": "Cart is empty.", "cart_items": []})
+
+    # Serialize cart items
     cart_items = [
         {
+            "id": item.id,  # Ensure item ID is included
             "product_name": item.product.name,
             "quantity": item.quantity,
-            "price": str(item.price),
-            "total_price": str(item.get_total_price()),
+            "price": float(item.price),
+            "total_price": float(item.get_total_price())
         }
         for item in cart.items.all()
     ]
-    return JsonResponse({"success": True, "cart_items": cart_items})
+
+    return JsonResponse({"success": True, "cart_items": cart_items, "total_price": cart.get_total_price()})
 
 
 def get_cart(request):
@@ -1140,44 +1152,151 @@ def add_to_cart(request, product_id):
     })
 
 
-@login_required
 def remove_from_cart(request, item_id):
-    cart_item = get_object_or_404(CartItem, id=item_id, cart__user=request.user)
-    cart_item.delete()
-    return redirect('view_cart')
-
-
-@login_required
-def create_order(request):
-    cart = get_object_or_404(Cart, user=request.user)
-    cart_items = cart.items.all()
-
-    if not cart_items:
-        return redirect('view_cart')
-
-    for item in cart_items:
-        Order.objects.create(
-            user=request.user,
-            product=item.product,
-            quantity=item.quantity,
-            total_price=item.get_total_price(),
-            status='pending'
-        )
-
-    # Clear the cart after order creation
-    cart.items.all().delete()
-    return redirect('view_orders')
-
-
-def get_cart(request):
+    """
+    Remove an item from the cart and return a JSON response.
+    """
+    # Determine the cart (logged-in user or session-based)
     if request.user.is_authenticated:
         cart = Cart.objects.filter(user=request.user).first()
     else:
-        session_key = request.session.session_key
-        if not session_key:
-            request.session.create()
-        cart = Cart.objects.filter(session_key=request.session.session_key).first()
-    return cart
+        session_key = request.session.session_key or request.session.create()
+        cart = Cart.objects.filter(session_key=session_key).first()
+
+    # If no cart exists, return an error
+    if not cart:
+        return JsonResponse({"success": False, "message": "Cart not found."})
+
+    # Attempt to find and delete the cart item
+    try:
+        cart_item = get_object_or_404(CartItem, id=item_id, cart=cart)
+        cart_item.delete()
+
+        # Calculate the updated total price and cart item count
+        total_price = cart.get_total_price()
+        cart_item_count = cart.items.count()
+
+        return JsonResponse({
+            "success": True,
+            "message": "Item removed from cart.",
+            "total_price": total_price,
+            "cart_item_count": cart_item_count,
+        })
+    except Exception as e:
+        return JsonResponse({"success": False, "message": str(e)})
+
+
+def create_order(request):
+    if request.method == 'POST':
+        # Collect common fields
+        name = request.POST.get('name')
+        email = request.POST.get('email')
+        phone_number = request.POST.get('phone_number')
+        shipping_address = request.POST.get('shipping_address')
+
+        # Validate required fields
+        if not all([name, email, phone_number, shipping_address]):
+            messages.error(request, "All fields are required.")
+            return render(request, 'synergy_mall/checkout.html', {
+                'cart': get_cart(request),
+                'total_price': get_cart(request).get_total_price(),
+            })
+
+        # Retrieve the cart
+        cart = get_cart(request)
+        if not cart or not cart.cartitem_set.exists():
+            messages.error(request, "Your cart is empty.")
+            return redirect('view_cart')
+
+        # Create orders for each item in the cart
+        cart_items = cart.cartitem_set.all()
+        for item in cart_items:
+            Order.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                product=item.product,
+                quantity=item.quantity,
+                total_price=item.get_total_price(),
+                status='pending',
+                shipping_address=shipping_address,
+                phone_number=phone_number,
+                email=email,
+            )
+
+        # Send confirmation email
+        order_summary = "\n".join([f"{item.quantity} x {item.product.name} - ${item.get_total_price()}" for item in cart_items])
+        total_price = cart.get_total_price()
+        message = (
+            f"Thank you for your order, {name}!\n\n"
+            f"Order Summary:\n{order_summary}\nTotal: ${total_price}\n\n"
+            f"Your order will be processed shortly.\n"
+            f"Shipping to: {shipping_address}\n\n"
+            f"Best regards,\nSynergy Mall Team"
+        )
+        send_mail(
+            'Order Confirmation',
+            message,
+            'no-reply@example.com',
+            [email],
+            fail_silently=False,
+        )
+
+        # Clear the cart
+        cart.cartitem_set.all().delete()
+
+        messages.success(request, "Your order has been placed successfully!")
+        return redirect('checkout_success')
+
+    # Render the checkout page
+    return render(request, 'synergy_mall/checkout.html', {
+        'cart': get_cart(request),
+        'total_price': get_cart(request).get_total_price(),
+    })
+
+
+def track_order(request):
+    if request.method == 'POST':
+        order_number = request.POST.get('order_number')
+        phone_number = request.POST.get('phone_number')
+
+        try:
+            # Fetch the order by number and phone number
+            order = Order.objects.get(order_number=order_number, phone_number=phone_number)
+
+            return render(request, 'synergy_mall/track_order_result.html', {
+                'order': order,
+            })
+        except Order.DoesNotExist:
+            return render(request, 'synergy_mall/track_order.html', {
+                'error': 'Order not found or details do not match. Please check and try again.',
+            })
+
+    return render(request, 'synergy_mall/track_order.html')
+
+
+def buy(request, product_id):
+    product = get_object_or_404(Product, id=product_id)
+
+    if request.method == "POST":
+        form = CheckoutForm(request.POST)
+        if form.is_valid():
+            # Process order and save it
+            order = Order.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                product=product,
+                quantity=1,  # Outright buy is always one item
+                total_price=product.price,
+                status='pending',  # Default status for a new order
+                **form.cleaned_data  # Include shipping or payment details from form
+            )
+            # Redirect to a success page or payment processor
+            return redirect('order_success')  # Replace with your success page URL
+    else:
+        form = CheckoutForm()
+
+    return render(request, 'synergy_mall/checkout.html', {
+        'form': form,
+        'product': product,
+    })
 
 
 @login_required
@@ -1190,7 +1309,7 @@ def checkout(request):
     cart = get_cart(request)
 
     if request.method == "POST":
-        form = GuestCheckoutForm(request.POST)
+        form = CheckoutForm(request.POST)
         if form.is_valid():
             # Create orders for each cart item
             for item in cart.items.all():
@@ -1205,9 +1324,13 @@ def checkout(request):
             cart.items.all().delete()
             return redirect("order_success")
     else:
-        form = GuestCheckoutForm()
+        form = CheckoutForm()
 
     return render(request, "synergy_mall/checkout.html", {"cart": cart, "form": form})
+
+
+def checkout_success(request):
+    return render(request, 'synergy_mall/checkout_success.html')
 
 
 # ############# GIFTING AN ITEM ##############
