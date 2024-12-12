@@ -48,8 +48,8 @@ def get_cart(request):
 def cart_context(request):
     """Provide the cart object and item count for authenticated and guest users."""
     cart = get_cart(request)
-    cart_item_count = cart.items.count() if cart else 0
-
+    # cart_item_count = cart.items.count() if cart else 0
+    cart_item_count = cart.items.all().count() if cart else 0
     return {
         "cart": cart,
         "cart_items_count": cart_item_count,
