@@ -5,25 +5,53 @@
     <h2>Edit Wishlist</h2>
     <form method="POST">
         {% csrf_token %}
+
+        <!-- Title Field -->
         <div class="mb-3">
             <label for="title" class="form-label">Title</label>
-            <input type="text" class="form-control" id="title" name="title" value="{{ wishlist.title }}" required>
+            {% if wishlist.title == "General List" %}
+                <input type="text" class="form-control" id="title" name="title" value="{{ wishlist.title }}" readonly>
+                <small class="form-text text-muted">The title of the "General List" cannot be changed.</small>
+            {% else %}
+                <input type="text" class="form-control" id="title" name="title" value="{{ wishlist.title }}" required>
+            {% endif %}
         </div>
+
+        <!-- Description Field -->
         <div class="mb-3">
             <label for="description" class="form-label">Description</label>
             <textarea class="form-control" id="description" name="description">{{ wishlist.description }}</textarea>
         </div>
+
+        <!-- Privacy Field -->
         <div class="mb-3">
             <label for="privacy" class="form-label">Privacy</label>
-            <select class="form-select" id="privacy" name="privacy">
-                <option value="private" {% if wishlist.privacy == 'private' %}selected{% endif %}>Private</option>
-                <option value="public" {% if wishlist.privacy == 'public' %}selected{% endif %}>Public</option>
-            </select>
+            {% if wishlist.title == "General List" %}
+                <select class="form-select" id="privacy" name="privacy" disabled>
+                    <option value="private" {% if wishlist.privacy == 'private' %}selected{% endif %}>Private</option>
+                    <option value="public" {% if wishlist.privacy == 'public' %}selected{% endif %}>Public</option>
+                </select>
+                <small class="form-text text-muted">The privacy of the "General List" cannot be changed.</small>
+            {% else %}
+                <select class="form-select" id="privacy" name="privacy">
+                    <option value="private" {% if wishlist.privacy == 'private' %}selected{% endif %}>Private</option>
+                    <option value="public" {% if wishlist.privacy == 'public' %}selected{% endif %}>Public</option>
+                </select>
+            {% endif %}
         </div>
+
+        <!-- Expiry Date Field -->
         <div class="mb-3">
             <label for="expiry_date" class="form-label">Expiry Date (optional)</label>
-            <input type="date" class="form-control" id="expiry_date" name="expiry_date" value="{{ wishlist.expiry_date|date:'Y-m-d' }}">
+            {% if wishlist.title == "General List" %}
+                <input type="date" class="form-control" id="expiry_date" name="expiry_date" value="{{ wishlist.expiry_date|date:'Y-m-d' }}" readonly>
+                <small class="form-text text-muted">The expiry date of the "General List" cannot be changed.</small>
+            {% else %}
+                <input type="date" class="form-control" id="expiry_date" name="expiry_date" value="{{ wishlist.expiry_date|date:'Y-m-d' }}">
+            {% endif %}
         </div>
+
+        <!-- Submit Button -->
         <button type="submit" class="btn btn-primary">Update Wishlist</button>
     </form>
 </div>

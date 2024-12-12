@@ -1,0 +1,26 @@
+<div class="col-6 col-md-3">
+    <div class="card mb-2 mt-0">
+        <a href="#" data-toggle="modal" data-target="#productModal{{ product.id }}">
+            <div id="productCarousel{{ product.id }}" class="carousel slide" data-ride="carousel">
+                <div class="carousel-inner">
+                    {% for image in product.images.all %}
+                    <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                        <img src="{{ image.image.url }}" class="d-block w-100 product-image" alt="{{ product.name }}">
+                    </div>
+                    {% empty %}
+                    <div class="carousel-item active">
+                        <img src="{% static 'images/no-image-available.png' %}" class="d-block w-100 product-image" alt="No Image Available">
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </a>
+        <div class="card-body">
+            <p class="card-title mb-0 mt-0">{{ product.name }}</p>
+            <p class="card-text mb-0 mt-0"><strong>${{ product.price }}</strong></p>
+        </div>
+        <button type="button" class="btn btn-secondary" data-toggle="modal" data-target="#giftItemModal{{ product.id }}">
+            Gift Item
+        </button>
+    </div>
+</div>

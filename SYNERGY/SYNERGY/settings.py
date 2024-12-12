@@ -28,7 +28,7 @@ SECRET_KEY = 'django-insecure-2r4j@aprw-@12$wji99*6_x**!$szwl@mtd1m5rvg&a=7!s76a
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -82,7 +82,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'synergy_mall.context_processors.cart_item_count',
+                # 'synergy_mall.context_processors.get_cart',
+                'synergy_mall.context_processors.cart_context',
             ],
         },
     },
@@ -168,3 +169,6 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv('EMAIL_USER')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_PASS')
 DEFAULT_FROM_EMAIL = os.getenv('EMAIL_USER')
+
+# Determine the environment
+ENV_MODE = os.getenv('ENV_MODE', 'development')  # 'production' for production mode

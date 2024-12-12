@@ -62,6 +62,15 @@ body.theme-light .dropdown-item:focus {
     color: #232424;
 }
 
+#themeToggle img {
+    transition: transform 0.2s ease;
+}
+
+#themeToggle img:hover {
+    transform: rotate(20deg);
+}
+
+
 /* Cards */
 body.theme-light .card {
     background-color: #ffffff;
@@ -262,3 +271,123 @@ body.theme-light .close {
     background-color: #343a40; /* Dark background */
     color: #ffffff; /* Light text */
 }
+
+/* Dark mode for list-group items */
+body.theme-dark .list-group-item {
+    background-color: #343a40; /* Matches the dark mode background */
+    color: #ffffff; /* Ensure text is white */
+    border: 1px solid #495057; /* Optional: subtle border */
+}
+
+/* Light mode for list-group items (if needed for clarity) */
+body.theme-light .list-group-item {
+    background-color: #ffffff; /* Matches the light mode background */
+    color: #232424; /* Ensure text is dark */
+}
+
+.form-group {
+    margin-right: 15px; /* Adjust spacing between the dropdowns */
+}
+
+/* Reduce space between product cards in mobile view */
+@media (max-width: 768px) {
+    .card.mb-2.mt-0 {
+        margin-bottom: 10px; /* Reduce bottom margin */
+        margin-top: 5px;     /* Reduce top margin */
+    }
+
+    .card-body {
+        padding: 10px; /* Reduce padding in card body */
+    }
+
+    /* Adjust the modal size for mobile view */
+    .modal-dialog.modal-lg {
+        max-width: 80%; /* Reduce modal width */
+        margin: 10px auto; /* Ensure proper margin */
+    }
+
+    /* Adjust carousel height for mobile */
+    .product-image {
+        height: 180px; /* Adjust the image height */
+    }
+
+    /* Adjust modal image height for mobile */
+    .product-image2 {
+        height: 250px; /* Adjust the modal image height */
+    }
+}
+
+.modal-dialog {
+    max-width: 600px;
+    margin: 1.75rem auto;
+}
+
+.modal-body #step1, .modal-body #step2 {
+    padding: 15px;
+}
+
+/* Floating Plus Button */
+.floating-plus-btn {
+    position: fixed;
+    bottom: 100px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    background-color: #007bff; /* Blue background */
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s, box-shadow 0.2s;
+    text-decoration: none;
+    z-index: 1100; /* Ensure it floats above other elements */
+}
+
+.floating-plus-btn:hover {
+    transform: scale(1.1); /* Slightly enlarge on hover */
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.3);
+}
+
+.floating-plus-btn svg {
+    width: 32px;
+    height: 32px;
+    fill: none; /* SVG's internal fill is set */
+}
+
+/* Tooltip for the Button */
+.floating-plus-btn[title]::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 70px;
+    right: 0;
+    background-color: #000;
+    color: #fff;
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+
+.floating-plus-btn:hover[title]::after {
+    opacity: 1; /* Show tooltip on hover */
+}
+
+#floating-cart button {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#floating-cart button:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.2);
+}
+
+.badge-danger {
+    background-color: #ff5e57; /* Red badge */
+    color: white;
+}
+

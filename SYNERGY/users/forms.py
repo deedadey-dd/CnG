@@ -156,3 +156,23 @@ class VendorProfileForm(forms.ModelForm):
             vendor.save()  # Save the vendor details
 
         return vendor
+
+
+class CoinTransferForm(forms.Form):
+    recipient = forms.CharField(label="Recipient (Email or Username)", max_length=255)
+    amount = forms.DecimalField(label="Amount to Transfer", max_digits=12, decimal_places=2)
+    message = forms.CharField(label="Message (Optional)", required=False, widget=forms.Textarea(attrs={'rows': 2}))
+
+    def clean_recipient(self):
+        recipient_data = self.cleaned_data['recipient']
+        try:
+            recipient = User.objects.get(Q(email=recipient_data) | Q(username=recipient_data))
+        except User.DoesNotExist:
+            raise forms.ValidationError("Recipient not found.")
+        return recipient
+
+    def clean_amount(self):
+        amount = self.cleaned_data['amount']
+        if amount <= 0:
+            raise forms.ValidationError("Amount must be greater than zero.")
+        return amount

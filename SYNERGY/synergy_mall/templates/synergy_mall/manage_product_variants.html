@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h3>Manage Variants for {{ product.name }}</h3>
+
+    <div class="row">
+        <!-- Existing Variants Card -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4>Update Existing Variant</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" class="mb-4">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label for="colors">Select Color</label>
+                            {{ form.colors }}
+                        </div>
+                        <div class="form-group">
+                            <label for="sizes">Select Size</label>
+                            {{ form.sizes }}
+                        </div>
+                        <div class="form-group">
+                            <label for="stock">Stock</label>
+                            {{ form.stock }}
+                        </div>
+                        <div class="form-group">
+                            <label for="price">Price</label>
+                            {{ form.price }}
+                        </div>
+                        <div class="form-group">
+                            <label for="sale_price">Sale Price</label>
+                            {{ form.sale_price }}
+                        </div>
+                        <!-- SKU should be readonly if it's an existing variant -->
+                        <div class="form-group">
+                            <label for="sku">SKU</label>
+                            <input type="text" name="sku" value="{{ form.sku.value }}" class="form-control" readonly>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Update Variant</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- New Variant Card -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4>Create New Variant</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" class="mb-4">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label for="colors">Enter New Color</label>
+                            <input type="text" name="new_color" class="form-control" placeholder="Enter new color">
+                        </div>
+                        <div class="form-group">
+                            <label for="sizes">Enter New Size</label>
+                            <input type="text" name="new_size" class="form-control" placeholder="Enter new size">
+                        </div>
+                        <div class="form-group">
+                            <label for="stock">Stock</label>
+                            <input type="number" name="new_stock" class="form-control" placeholder="Enter stock quantity">
+                        </div>
+                        <div class="form-group">
+                            <label for="price">Price</label>
+                            <input type="number" name="new_price" class="form-control" placeholder="Enter price">
+                        </div>
+                        <div class="form-group">
+                            <label for="sale_price">Sale Price</label>
+                            <input type="number" name="new_sale_price" class="form-control" placeholder="Enter sale price (optional)">
+                        </div>
+                        <button type="submit" class="btn btn-success">Create New Variant</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Existing Variants Table -->
+    <h3 class="mt-5">Existing Variants:</h3>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Color</th>
+                <th>Size</th>
+                <th>SKU</th>
+                <th>Stock</th>
+                <th>Price</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for variant in variants %}
+            <tr>
+                <td>{{ variant.color }}</td>
+                <td>{{ variant.size }}</td>
+                <td>{{ variant.sku }}</td>
+                <td>{{ variant.stock }}</td>
+                <td>${{ variant.get_effective_price }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5">No variants available</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

@@ -39,10 +39,23 @@
                 <td>{{ product.color|default:"-" }}</td>
                 <td>
                     <div class="btn-group" role="group">
-                        <a href="{% url 'edit_product' product.id %}" class="btn btn-primary btn-sm">Edit</a>
+                        <!-- Dropdown button for Edit -->
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-primary btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                Edit
+                            </button>
+                            <div class="dropdown-menu">
+                                <!-- Links inside dropdown -->
+                                <a class="dropdown-item" href="{% url 'edit_product' product.id %}">Edit Product</a>
+                                <a class="dropdown-item" href="{% url 'manage_product_variants' product.id %}">Manage Variants</a>
+                            </div>
+                        </div>
+
+                        <!-- Other buttons -->
                         <a href="{% url 'suspend_product' product.id %}" class="btn btn-warning btn-sm">Suspend</a>
                         <a href="{% url 'delete_product' product.id %}" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure?');">Delete</a>
                     </div>
+
                 </td>
             </tr>
             {% empty %}

@@ -4,11 +4,7 @@ from django.conf import settings
 from django.utils import timezone
 import uuid
 from decimal import Decimal
-
-
 from django.db import models
-from django.conf import settings
-from django.utils import timezone
 
 
 # Category Model
@@ -54,7 +50,19 @@ class ProductVariant(models.Model):
     size = models.CharField(max_length=20, blank=True, null=True)  # Optional: Some products may not have size variants
     sku = models.CharField(max_length=50, blank=True, null=True, unique=True)
     stock = models.PositiveIntegerField(default=0)
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # Variant-specific price
+    sale_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # Variant-specific sale price
     image = models.ImageField(upload_to='media/product_variants/', blank=True, null=True)
+
+    def get_effective_price(self):
+        """
+        Calculate the effective price for the variant.
+        If the product is on sale, apply the sale price of the variant or product.
+        Otherwise, use the regular price.
+        """
+        if self.product.is_on_sale():
+            return self.sale_price if self.sale_price else self.product.get_sale_price()
+        return self.price if self.price else self.product.pripyce
 
     def __str__(self):
         variant_str = f"{self.product.name}"
@@ -82,41 +90,6 @@ class Tag(models.Model):
 
     def __str__(self):
         return self.name
-
-
-# ## ORDER AND CART ##
-class Order(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'user_type': 'regular'})  # Restrict to regular users
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    quantity = models.PositiveIntegerField()
-    total_price = models.DecimalField(max_digits=10, decimal_places=2)
-    status = models.CharField(max_length=50, choices=[('pending', 'Pending'), ('shipped', 'Shipped'), ('delivered', 'Delivered')])
-    order_date = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"Order by {self.user.username} for {self.product.name}"
-
-
-class Cart(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
-    session_key = models.CharField(max_length=255, blank=True, null=True, db_index=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"Cart ({self.user if self.user else 'Anonymous'})"
-
-
-class CartItem(models.Model):
-    cart = models.ForeignKey(Cart, on_delete=models.CASCADE)
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    quantity = models.PositiveIntegerField(default=1)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-
-    def get_total_price(self):
-        return self.price * self.quantity
-
-    def __str__(self):
-        return f"{self.quantity} x {self.product.name}"
 
 
 # ## WISHLIST MODELS ##
@@ -208,6 +181,8 @@ class WishlistItem(models.Model):
     status = models.CharField(max_length=50, choices=[('pending', 'Pending'), ('partial', 'Partially Filled'), ('filled', 'Filled')], default='Pending')
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     ordering = models.PositiveIntegerField(default=0)  # Field to order items
+    giver_contact = models.CharField(max_length=255, blank=True, null=True)
+    message = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.product.name} in {self.wishlist.title}"
@@ -249,3 +224,109 @@ class Contribution(models.Model):
 
     def __str__(self):
         return f"Contribution of ${self.amount} by {self.contributor_name} to {self.wishlist.title}"
+
+
+class Gift(models.Model):
+    giver = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gifts_sent',
+        blank=True,  # Allow this field to be optional
+        null=True    # Allow null values
+    )
+    receiver = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='gifts_received')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    amount_given = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    wishlist = models.ForeignKey(Wishlist, on_delete=models.CASCADE)
+    giver_contact = models.CharField(max_length=255, blank=True, null=True)  # Contact is optional for authenticated users
+    message_to_receiver = models.TextField(blank=True, null=True)
+    date_sent = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Gift of {self.product.name} from {self.giver or 'Unauthenticated User'} to {self.receiver}"
+
+
+# ## ORDER AND CART ##
+
+# Order Model
+class Order(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('shipped', 'Shipped'),
+        ('delivered', 'Delivered'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    order_number = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    product = models.ForeignKey('Product', on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField()
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='pending')
+    shipping_address = models.TextField()
+    phone_number = models.CharField(max_length=15)
+    email = models.EmailField()
+    order_date = models.DateTimeField(auto_now_add=True)
+    shipped_at = models.DateTimeField(null=True, blank=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+
+    def update_status(self, new_status):
+        """Update the order status and set the corresponding timestamp."""
+        self.status = new_status
+        if new_status == 'shipped':
+            self.shipped_at = timezone.now()
+        elif new_status == 'delivered':
+            self.delivered_at = timezone.now()
+        elif new_status == 'cancelled':
+            self.cancelled_at = timezone.now()
+        self.save()
+
+    def __str__(self):
+        return f"Order #{self.order_number} - {self.product.name}"
+
+    
+# Cart Model
+class Cart(models.Model):
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('checked_out', 'Checked Out'),
+        ('abandoned', 'Abandoned'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    session_key = models.CharField(max_length=255, blank=True, null=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+
+    def get_total_price(self):
+        return sum(item.get_total_price() for item in self.items.all())
+
+    def __str__(self):
+        if self.user:
+            return f"Cart (User: {self.user.username}, Status: {self.status})"
+        elif self.session_key:
+            return f"Cart (Session: {self.session_key}, Status: {self.status})"
+        return f"Cart (No Owner, Status: {self.status})"
+
+
+class CartItem(models.Model):
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def get_total_price(self):
+        return self.price * self.quantity
+
+    def __str__(self):
+        return f"{self.quantity} x {self.product.name} @ {self.price}"
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(check=models.Q(quantity__gte=1), name="cartitem_quantity_positive"),
+        ]
+

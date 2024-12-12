@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}My Gifts{% endblock %}
+{% block content %}
+<div class="container mt-5">
+    <h1>Gifts Received</h1>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>Giver</th>
+                <th>Giver Contact</th>
+                <th>Amount Given</th>
+                <th>Message</th>
+                <th>Date Sent</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for gift in gifts %}
+                <tr>
+                    <td>{{ gift.product.name }}</td>
+                    <td>{{ gift.giver }}</td>
+                    <td>{{ gift.giver_contact }}</td>
+                    <td>${{ gift.amount_given }}</td>
+                    <td>{{ gift.message_to_receiver }}</td>
+                    <td>{{ gift.date_sent |date:"Y-m-d | H:i" }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+    <div class="container mt-5">
+        <h2>Transfer Coins</h2>
+        <p>Your coin balance: <strong>{{ total_coins }}</strong></p>
+        <form method="POST">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="btn btn-primary">Transfer Coins</button>
+        </form>
+    </div>
+{% endblock %}

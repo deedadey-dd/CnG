@@ -4,13 +4,17 @@
 {% block content %}
 <div class="container">
     <h2>{{ wishlist.title }}</h2>
-    <p>{{ wishlist.description }}</p>
+    <i>{{ wishlist.description }}</i>
     <p>Privacy: {{ wishlist.get_privacy_display }}</p>
 
     <!-- Contribute Button to trigger the modal -->
+    {% if user == wishlist.user %}
+    <p>Drag Items to Prioritize them</p>
+    {% else %}
     <button type="button" class="btn btn-success" data-toggle="modal" data-target="#contributeModal">
         Contribute
     </button>
+    {% endif %}
 
     <!-- Contribution Form Modal -->
     <div class="modal fade" id="contributeModal" tabindex="-1" role="dialog" aria-labelledby="contributeModalLabel" aria-hidden="true">
@@ -35,9 +39,9 @@
 
                         <!-- Contributor's Contact Info -->
                         <div class="form-group">
-                            <label for="contact_info">Phone Number or Email</label>
+                            <label for="contact_info">Email</label>
                             <input type="text" id="contact_info" name="contact_info" required class="form-control"
-                            value="{% if user.is_authenticated %}{{ user_info.phone_number|default:'' }}{% endif %}">
+                            value="{% if user.is_authenticated %}{{ user_info.email|default:'' }}{% endif %}">
                         </div>
 
                         <!-- Contribution Message -->
@@ -71,134 +75,149 @@
         </div>
     </div>
 
-    <!-- Draggable Items for Reordering -->
-    <h4>Items</h4>
-    <ul id="sortable-items" class="dark-mode list-group">
-        {% for item in items %}
-        <li class="list-group-item" data-item-id="{{ item.id }}">
-            <div class="">
-            <div class="card mb-4">
-                <div class="card-body">
-                    <h5 class="card-title">{{ item.product.name }}</h5>
-                    <!-- Carousel for Product Images -->
-                    <div id="productCarousel{{ product.id }}" class="carousel slide card-top-image img-thumbnail" data-ride="carousel">
-                        <div class="carousel-inner">
-                            {% for image in item.product.images.all %}
-                            <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                                <img src="{{ image.image.url }}" class="d-block w-100 product-image" alt="{{ item.product.name }}">
-                            </div>
-                            {% empty %}
-                            <div class="carousel-item active">
-                                <img src="{% static 'images/no-image-available.png' %}" class="d-block w-100 product-image" alt="No Image Available">
-                            </div>
-                            {% endfor %}
-                        </div>
-                        <a class="carousel-control-prev" href="#productCarousel{{ item.product.id }}" role="button" data-slide="prev">
-                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                            <span class="sr-only">Previous</span>
-                        </a>
-                        <a class="carousel-control-next" href="#productCarousel{{ product.id }}" role="button" data-slide="next">
-                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                            <span class="sr-only">Next</span>
-                        </a>
-                    </div>
+    <div class="row">
+        <div class="col-md-8">
+            <!-- Draggable Items for Reordering -->
+            <h4>Items</h4>
+            <ul id="sortable-items" class="dark-mode list-group">
+                {% for item in items %}
+                <li class="list-group-item" data-item-id="{{ item.id }}">
+                    <div class="">
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <h4 class="card-title">{{ item.product.name }}</h4>
+                                        <!-- Carousel for Product Images -->
+                                        <div id="productCarousel{{ product.id }}" class="carousel slide card-top-image img-thumbnail" data-ride="carousel">
+                                            <div class="carousel-inner">
+                                                {% for image in item.product.images.all %}
+                                                <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                                    <img src="{{ image.image.url }}" class="d-block w-100 product-image" alt="{{ item.product.name }}">
+                                                </div>
+                                                {% empty %}
+                                                <div class="carousel-item active">
+                                                    <img src="{% static 'images/no-image-available.png' %}" class="d-block w-100 product-image" alt="No Image Available">
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                            <a class="carousel-control-prev" href="#productCarousel{{ item.product.id }}" role="button" data-slide="prev">
+                                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                                <span class="sr-only">Previous</span>
+                                            </a>
+                                            <a class="carousel-control-next" href="#productCarousel{{ product.id }}" role="button" data-slide="next">
+                                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                                <span class="sr-only">Next</span>
+                                            </a>
+                                        </div>
 
-                    <p class="card-text">{% if wishlist.total_contributions == 0 %}Initial Price: {{ item.total_price }}
-                        {% else %} Initial Price: <strike>${{ item.total_price }}</strike> Remaining: <strong> $ {{ item.amount_remaining }}</strong>{% endif %}
-                    </p>
+                                        <div class="row mt-4">
+                                            <form method="post" action="{% url 'update_wishlist_item' wishlist.id item.id %}" class="d-flex align-items-center w-100">
+                                                {% csrf_token %}
 
-                    <div class="row">
-                        <form method="post" action="{% url 'update_wishlist_item' wishlist.id item.id %}">
-                            {% csrf_token %}
+                                                <!-- Label and Input -->
+                                                <div class="d-flex align-items-center mr-3">
+                                                    <!-- Label for Quantity -->
+                                                    <label for="quantity-{{ item.id }}" class="mb-0 mr-2">Quantity:</label>
 
-                            <!-- Quantity Label and Input (aligned on the same line) -->
-                            <div class="d-flex align-items-center">
-                                <!-- Label for Quantity -->
-                                <div class="mr-2">
-                                    <label for="quantity-{{ item.id }}" class="mb-0">Quantity:</label>
+                                                    <!-- Quantity Input or Display -->
+                                                    {% if user == wishlist.user %}
+                                                        <input type="number" id="quantity-{{ item.id }}" name="quantity" value="{{ item.quantity }}" min="1" class="form-control" style="width: 80px;">
+                                                    {% else %}
+                                                        <span class="form-control-plaintext">{{ item.quantity }}</span>
+                                                    {% endif %}
+                                                </div>
+
+                                                <!-- Update and Remove Buttons (only for owner) -->
+                                                {% if user == wishlist.user %}
+                                                    <div class="d-flex">
+                                                        <button type="submit" class="btn btn-primary btn-sm mr-2">Update</button>
+                                                        <a href="{% url 'remove_wishlist_item' wishlist.id item.id %}" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to remove this item?');">Delete</a>
+                                                    </div>
+                                                {% endif %}
+                                            </form>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <!-- Contribution Summary -->
+                                        <div class="mb-2">
+                                            <h5 class="card-text">{% if wishlist.total_contributions == 0 %}Initial Price: {{ item.total_price }}
+                                                {% else %} Initial Price: <del style="color: red">${{ item.total_price }}</del> Remaining: <strong> $ {{ item.amount_remaining }}</strong>{% endif %}
+                                            </h5>
+                                        </div>
+                                        <h6 class="ml-0"><strong>--- Contributions ---</strong></h6>
+                                        <div class="row">
+                                            {% for contribution in item.contribution_set.all %}
+                                            <ul class="list-group">
+                                                <li class="list-group-item">
+                                                    <p class="mb-0 mt-0"><strong>{{ contribution.contributor_name }}</strong> says...
+                                                        <i>{{ contribution.message }}</i>  ...with <strong> ${{ contribution.amount }}</strong>
+                                                    </p>
+
+                                                    {% if user == wishlist.user %}
+                                                    <p class="mb-0 mt-0 text-right"><i><small>{{ contribution.contact_info }}</small></i></p>
+                                                    {% endif %}
+                                                    <p class="mb-1 mt-0" align="right"><i><small>{{ contribution.date|date:"Y-m-d | H:i" }}</small></i></p>
+                                                </li>
+                                            </ul>
+
+                                            {% empty %}
+                                                <p>No contributions yet.</p>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <!-- Quantity Input (for owner) or Quantity Display (for non-owner) -->
-                                <div>
-                                    {% if user == wishlist.user %}
-                                        <input type="number" id="quantity-{{ item.id }}" name="quantity" value="{{ item.quantity }}" min="1" class="form-control" style="width: 80px;">
-                                    {% else %}
-                                        <span class="form-control-plaintext">{{ item.quantity }}</span>
-                                    {% endif %}
-                                </div>
-                            </div>
-
-                            <!-- Update and Remove Buttons (only visible to the wishlist owner) -->
-                            {% if user == wishlist.user %}
-                                <div class="mt-2">
-                                    <button type="submit" class="btn btn-primary mr-2">Update Quantity</button>
-                                    <a href="{% url 'remove_wishlist_item' wishlist.id item.id %}" class="btn btn-danger" onclick="return confirm('Are you sure you want to remove this item?');">Remove Item</a>
-                                </div>
-                            {% endif %}
-                        </form>
-                    </div>
-
-
-                    <!-- Contribution Summary -->
-                    <h4>Contributions</h4>
-                    <div class="row">
-                        {% for contribution in item.contribution_set.all %}
-                            <div class="contribution mr-4">
-                                <p class="mb-0 mt-0"><strong>{{ contribution.contributor_name }}</strong> says... </p>
-                                <p class="mb-0 mt-0"><i>{{ contribution.message }}</i></p>
-                                <p class="mb-0 mt-0"> ...with <strong> ${{ contribution.amount }}</strong></p>
-                                <p class="mb-1 mt-0"><i><small>{{ contribution.date|date:"Ymd | H:i" }}</small></i></p>
-                                {% if user == wishlist.user %}
-                                <p class="mb-0 mt-0">Contact: {{ contribution.contact_info }}</p>
+                                {% if user != wishlist.user %}
+                                <!-- Contribute Button to trigger the modal -->
+                                <button type="button" class="btn btn-success" data-toggle="modal" data-target="#contributeModal">
+                                    Contribute
+                                </button>
                                 {% endif %}
                             </div>
-                        <hr>
-
-                        {% empty %}
-                            <p>No contributions yet.</p>
-                        {% endfor %}
+                        </div>
                     </div>
-                    {% if user != wishlist.user %}
-                    <!-- Contribute Button to trigger the modal -->
-                    <button type="button" class="btn btn-success" data-toggle="modal" data-target="#contributeModal">
-                        Contribute
-                    </button>
-                    {% endif %}
-                </div>
-            </div>
-            </div>
-        </li>
-        {% endfor %}
-    </ul>
-    {% if user == wishlist.user %}
-    <!-- Button to Save Order -->
-    <button class="btn btn-primary mt-3" onclick="saveOrder()">Save Order</button>
-    {% else %}
-        <!-- Contribute Button to trigger the modal -->
-        <button type="button" class="btn btn-success" data-toggle="modal" data-target="#contributeModal">
-            Contribute
-        </button>
-    {% endif %}
-</div>
-
-    <h4>General Contributions</h4>
-    <div class="row">
-        {% if general_contributions %}
-            <ul class="list-group">
-                {% for contribution in general_contributions %}
-                <li class="list-group-item">
-                    <strong>{{ contribution.contributor_name }}</strong> contributed <strong>${{ contribution.amount }}</strong>
-                    <p class="mb-0">{{ contribution.message }}</p>
-                    <p class="mb-0">Contact: {{ contribution.contact_info }}</p>
-                    <p><small><i>{{ contribution.date|date:"Y-m-d H:i" }}</i></small></p>
                 </li>
                 {% endfor %}
             </ul>
-        {% else %}
-            <p>No general contributions yet.</p>
-        {% endif %}
-    </div>
+            {% if user == wishlist.user %}
+            <!-- Button to Save Order -->
+            <button class="btn btn-primary mt-3" onclick="saveOrder()">Save Order</button>
+            {% else %}
+                <!-- Contribute Button to trigger the modal -->
+                <button type="button" class="btn btn-success" data-toggle="modal" data-target="#contributeModal">
+                    Contribute
+                </button>
+            {% endif %}
+        </div>
 
+<!--        GENERAL CONTRIBUTIONS   -->
+        <div class="col-md-4">
+            <h4>General Contributions</h4>
+            <div class="row">
+                {% if general_contributions %}
+                    <ul class="list-group">
+                        {% for contribution in general_contributions %}
+                        <li class="list-group-item">
+                            <p class="mb-0">
+                              <strong>{{ contribution.contributor_name }}</strong> says... <i> {{ contribution.message }} </i>
+                                with <strong>${{ contribution.amount }}</strong>
+                            </p>
+                            {% if user == wishlist.user %}
+                                <p class="mb-0">Contact: {{ contribution.contact_info }}</p>
+                            {% endif %}
+                            <p class="mb-0 mt-0" align="right"><small><i>{{ contribution.date|date:"Y-m-d | H:i" }}</i></small></p>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No general contributions yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
 <!-- Include the SortableJS script -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.14.0/Sortable.min.js"></script>
 

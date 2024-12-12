@@ -1,22 +1,30 @@
+from django.conf import settings
 import json
-
+import os
 import openpyxl
 import pandas as pd
 from decimal import Decimal
+import requests
+from django.core.exceptions import ValidationError
+from django.core.mail import send_mail
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.contrib import messages
-from .models import Product, Wishlist, WishlistItem, Cart, Wishlist, Contribution, ProductImage, Tag, ProductVariant, \
-    Category
-from django.contrib.auth.models import User
+from .models import Product, WishlistItem, Cart, Wishlist, Contribution, ProductImage, Tag, ProductVariant, \
+    Category, Gift, Order, CartItem
+# from django.contrib.auth.models import User
+from users.models import User
+from .payment_functions import initialize_payment
+from dotenv import load_dotenv
 from .wishlist import WishlistService
 from django.db.models import Q, Count
 from django.utils import timezone
 from .forms import ProductForm, InventoryProductForm, FeaturedAndAvailableForm, CategoryForm, BulkCategoryUploadForm, \
-    BulkProductUploadForm
+    BulkProductUploadForm, ProductVariantForm, GiftPaymentForm, GuestCheckoutForm, CheckoutForm
 
 
 # Helper function to check if user is vendor
@@ -33,6 +41,86 @@ def get_paginated_products(request, page_number=1, per_page=12):
     products = Product.objects.filter(is_active=True, available=True)
     paginator = Paginator(products, per_page)
     return paginator.get_page(page_number)
+
+
+def start_payment(request):
+    email = "customer@example.com"
+    amount_in_ghc = 1000
+    amount_in_pesewas = amount_in_ghc * 100  # Convert to pesewas
+
+    payment_url = initialize_payment(email, amount_in_pesewas)
+    if "https" in payment_url:
+        # Redirect the user to the payment page
+        return redirect(payment_url)
+    else:
+        # Handle error
+        return HttpResponse(payment_url)
+
+
+# ########## CONFIRM TRANSACTIONS AND LOG THEM ##############
+@csrf_exempt
+def paystack_webhook(request):
+    if request.method == 'POST':
+        # Get the request body and decode it
+        event = json.loads(request.body.decode('utf-8'))
+
+        # Retrieve the event type and details
+        event_type = event.get('event', None)
+        data = event.get('data', {})
+
+        # Paystack sends different events, we are only interested in 'charge.success'
+        if event_type == 'charge.success':
+            # Verify the event by contacting Paystack's API
+            payment_reference = data.get('reference')
+
+            if payment_reference:
+                verified = verify_paystack_payment(payment_reference)
+
+                if verified:
+                    # Retrieve contribution data from session (you may need to store it persistently in some cases)
+                    contribution_data = request.session.get('contribution_data', {})
+                    amount = Decimal(contribution_data.get('amount'))
+                    wishlist_id = contribution_data.get('wishlist_id')
+                    contributor_name = contribution_data.get('contributor_name')
+                    contact_info = contribution_data.get('contact_info')
+                    message = contribution_data.get('message')
+                    item_id = contribution_data.get('item_id')
+
+                    wishlist = Wishlist.objects.get(id=wishlist_id)
+                    if item_id:
+                        # Specific item contribution
+                        item = WishlistItem.objects.get(id=item_id, wishlist=wishlist)
+                        handle_item_contribution(item, amount, contributor_name, contact_info, message)
+                    else:
+                        # General contribution
+                        handle_general_contribution(wishlist, amount, contributor_name, contact_info, message)
+
+                    # Clear session data after successful contribution
+                    del request.session['contribution_data']
+
+                    return JsonResponse({'status': 'success', 'message': 'Payment verified and contribution logged'},
+                                        status=200)
+                else:
+                    return JsonResponse({'status': 'error', 'message': 'Payment verification failed'}, status=400)
+
+        return JsonResponse({'status': 'success'}, status=200)
+
+    return JsonResponse({'status': 'invalid request'}, status=400)
+
+
+def verify_paystack_payment(reference):
+    """Verify the payment reference with Paystack API to confirm payment."""
+    url = f'https://api.paystack.co/transaction/verify/{reference}'
+    headers = {
+        "Authorization": f"Bearer {os.getenv('PAY_SECRET')}"
+    }
+
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        response_data = response.json()
+        return response_data.get('status') and response_data['data']['status'] == 'success'
+
+    return False
 
 
 # Open/Closed Principle: Extendable logic for actions based on login state.
@@ -109,11 +197,20 @@ def create_wishlist(request):
         expiry_date = request.POST.get('expiry_date', None)
 
         wishlist_service = WishlistService(request.user)
-        wishlist = wishlist_service.create_wishlist(
-            title=title, description=description, privacy=privacy, expiry_date=expiry_date
-        )
-        messages.success(request, f'Wishlist "{wishlist.title}" created successfully!')
-        return redirect('view_wishlist', wishlist_id=wishlist.id)
+
+        try:
+            # Attempt to create the wishlist
+            wishlist = wishlist_service.create_wishlist(
+                title=title,
+                description=description,
+                privacy=privacy,
+                expiry_date=expiry_date,
+            )
+            messages.success(request, f'Wishlist "{wishlist.title}" created successfully!')
+            return redirect('view_wishlist', wishlist_id=wishlist.id)
+        except ValidationError as e:
+            # Display the error message
+            messages.error(request, str(e))
 
     return render(request, 'synergy_mall/create_wishlist.html')
 
@@ -121,15 +218,20 @@ def create_wishlist(request):
 @login_required
 def delete_wishlist(request, wishlist_id):
     wishlist_service = WishlistService(request.user)
-    wishlist_service.delete_wishlist(wishlist_id)
-    messages.success(request, 'Wishlist deleted successfully!')
-    return redirect('user_wishlists')
+
+    try:
+        wishlist_service.delete_wishlist(wishlist_id)
+        messages.success(request, 'Wishlist deleted successfully!')
+    except ValidationError as e:
+        messages.error(request, str(e))  # Display the error message
+
+    return redirect('my_wishlists')
 
 
 @login_required
 def edit_wishlist(request, wishlist_id):
     wishlist_service = WishlistService(request.user)
-    wishlist = wishlist_service.get_wishlist(wishlist_id)
+    wishlist = wishlist_service._get_user_wishlist(wishlist_id)
 
     if request.method == 'POST':
         title = request.POST.get('title')
@@ -137,15 +239,21 @@ def edit_wishlist(request, wishlist_id):
         privacy = request.POST.get('privacy', 'private')
         expiry_date = request.POST.get('expiry_date', None)
 
-        wishlist_service.update_wishlist(
-            wishlist_id=wishlist.id,
-            title=title,
-            description=description,
-            privacy=privacy,
-            expiry_date=expiry_date
-        )
-        messages.success(request, f'Wishlist "{wishlist.title}" updated successfully!')
-        return redirect('view_wishlist', wishlist_id=wishlist.id)
+        try:
+            # Attempt to update the wishlist
+            wishlist_service.update_wishlist(
+                wishlist_id=wishlist.id,
+                title=title,
+                description=description,
+                privacy=privacy,
+                expiry_date=expiry_date
+            )
+            messages.success(request, f'Wishlist "{wishlist.title}" updated successfully!')
+            return redirect('view_wishlist', wishlist_id=wishlist.id)
+
+        except ValidationError as e:
+            # Show validation error messages
+            messages.error(request, str(e))
 
     context = {
         'wishlist': wishlist
@@ -166,7 +274,7 @@ def view_wishlist(request, wishlist_id):
             'first_name': request.user.first_name,
             'surname': request.user.surname,
             'other_names': request.user.other_names,
-            'phone_number': request.user.phone_number,
+            'email': request.user.email,
         }
 
     context = {
@@ -227,7 +335,6 @@ def all_wishlists(request):
     context = {
         'page_obj': page_obj
     }
-
     return render(request, 'synergy_mall/all_wishlists.html', context)
 
 
@@ -254,52 +361,136 @@ def remove_wishlist_item(request, wishlist_id, item_id):
 
 # ########## CONTRIBUTION VIEWS ##########
 
+# def contribute_to_wishlist(request, wishlist_id):
+#     """ This is contribution through paystack
+#         Since payment confirmation is unavailable in dev mode
+#         This will be disabled till w ego live on paystack"""
+#
+#     wishlist = get_object_or_404(Wishlist, id=wishlist_id)
+#
+#     try:
+#         amount = Decimal(request.POST.get('amount'))  # Ensure it's passed as Decimal
+#     except (TypeError, ValueError):
+#         messages.error(request, "Invalid contribution amount.")
+#         return redirect('view_wishlist', wishlist_id=wishlist_id)
+#
+#     if amount <= 0:
+#         messages.error(request, "Contribution amount must be greater than zero.")
+#         return redirect('view_wishlist', wishlist_id=wishlist_id)
+#
+#     contributor_name = request.POST.get('contributor_name')
+#     contact_info = request.POST.get('contact_info')
+#     message = request.POST.get('message', '')  # Optional message
+#     item_id = request.POST.get('item_id')  # This will be null for general contributions
+#
+#     # Store contribution details in session to be used after payment confirmation
+#     request.session['contribution_data'] = {
+#         'wishlist_id': wishlist.id,
+#         'contributor_name': contributor_name,
+#         'contact_info': contact_info,
+#         'message': message,
+#         'amount': str(amount),
+#         'item_id': item_id,  # Optional: Can be null for general contributions
+#     }
+#
+#     # Start payment
+#     email = contact_info  # Assuming the contact info is an email
+#     amount_in_pesewas = int(amount * 100)  # Convert to pesewas
+#
+#     payment_url = initialize_payment(email, amount_in_pesewas)
+#     if "https" in payment_url:
+#         # Redirect the user to the payment page
+#         return redirect(payment_url)
+#     else:
+#         # Handle error (payment initialization failed)
+#         messages.error(request, "Failed to initialize payment. Please try again.")
+#         return redirect('view_wishlist', wishlist_id=wishlist_id)
+
+### This is before payment integration
+
+
+# def contribute_to_wishlist(request, wishlist_id):
+#     wishlist = get_object_or_404(Wishlist, id=wishlist_id)
+#
+#     try:
+#         amount = Decimal(request.POST.get('amount'))  # Ensure it's passed as Decimal
+#     except (TypeError, ValueError):
+#         messages.error(request, "Invalid contribution amount.")
+#         return redirect('view_wishlist', wishlist_id=wishlist_id)
+#
+#     if amount <= 0:
+#         messages.error(request, "Contribution amount must be greater than zero.")
+#         return redirect('view_wishlist', wishlist_id=wishlist_id)
+#
+#     contributor_name = request.POST.get('contributor_name')
+#     contact_info = request.POST.get('contact_info')
+#     message = request.POST.get('message', '')  # Optional message
+#     item_id = request.POST.get('item_id')  # This will be null for general contributions
+#
+#     if item_id:
+#         # Specific item contribution
+#         item = get_object_or_404(WishlistItem, id=item_id, wishlist=wishlist)
+#         handle_item_contribution(item, amount, contributor_name, contact_info, message)
+#         messages.success(request, f"Successfully contributed ${amount} to {item.product.name}.")
+#     else:
+#         # General contribution, apply to the first item in the wishlist that needs funds
+#         handle_general_contribution(wishlist, amount, contributor_name, contact_info, message)
+#         messages.success(request, f"Successfully contributed ${amount} to {wishlist.title}.")
+#
+#     return redirect('view_wishlist', wishlist_id=wishlist.id)
+
 
 def contribute_to_wishlist(request, wishlist_id):
+    """ This contribution combines both development environment and produciton
+        by checking the ENV_MODE in settings.py"""
     wishlist = get_object_or_404(Wishlist, id=wishlist_id)
 
     try:
-        amount = Decimal(request.POST.get('amount'))  # Ensure it's passed as Decimal
+        amount = Decimal(request.POST.get('amount'))
+        print(f"Amount to contribute: {amount}")
     except (TypeError, ValueError):
         messages.error(request, "Invalid contribution amount.")
         return redirect('view_wishlist', wishlist_id=wishlist_id)
 
-    if amount <= 0:
-        messages.error(request, "Contribution amount must be greater than zero.")
+    if amount <= 10:
+        messages.error(request, "Contribution amount must be 10 or more.")
         return redirect('view_wishlist', wishlist_id=wishlist_id)
 
     contributor_name = request.POST.get('contributor_name')
     contact_info = request.POST.get('contact_info')
-    message = request.POST.get('message', '')  # Optional message
-    item_id = request.POST.get('item_id')  # This will be null for general contributions
+    message = request.POST.get('message', '')
+    item_id = request.POST.get('item_id')
 
-    if item_id:
-        # Specific item contribution
-        item = get_object_or_404(WishlistItem, id=item_id, wishlist=wishlist)
-        handle_item_contribution(item, amount, contributor_name, contact_info, message)
-        messages.success(request, f"Successfully contributed ${amount} to {item.product.name}.")
+    if settings.ENV_MODE == 'development':
+        # Directly log the contribution in development mode
+
+        if item_id:
+            item = get_object_or_404(WishlistItem, id=item_id, wishlist=wishlist)
+            handle_item_contribution(item, amount, contributor_name, contact_info, message)
+            messages.success(request, f"Successfully contributed ${amount} to {item.product.name}.")
+        else:
+            handle_general_contribution(wishlist, amount, contributor_name, contact_info, message)
+            messages.success(request, f"Successfully contributed ${amount} to {wishlist.title}.")
+
+        return redirect('view_wishlist', wishlist_id=wishlist.id)
+
     else:
-        # General contribution, apply to the first item in the wishlist that needs funds
-        handle_general_contribution(wishlist, amount, contributor_name, contact_info, message)
-        messages.success(request, f"Successfully contributed ${amount} to {wishlist.title}.")
+        # Initialize payment in production mode
+        email = contact_info
+        amount_in_pesewas = int(amount * 100)
 
-    return redirect('view_wishlist', wishlist_id=wishlist.id)
+        payment_url = initialize_payment(email, amount_in_pesewas)
+        if "https" in payment_url:
+            return redirect(payment_url)
+        else:
+            messages.error(request, "Failed to initialize payment. Please try again.")
+            return redirect('view_wishlist', wishlist_id=wishlist_id)
 
 
 def handle_item_contribution(item, amount, contributor_name, contact_info, message):
     """Handle specific item contribution and handle surplus if any."""
-    remaining = item.amount_remaining()
 
-    if amount <= remaining:
-        item.amount_paid += amount
-        item.save()
-    else:
-        surplus = amount - remaining
-        item.amount_paid += remaining
-        item.save()
-        distribute_surplus(item.wishlist, surplus)
-
-    # Log the contribution with additional details
+    # Log the contribution
     Contribution.objects.create(
         wishlist_item=item,
         wishlist=item.wishlist,
@@ -310,9 +501,43 @@ def handle_item_contribution(item, amount, contributor_name, contact_info, messa
         date=timezone.now()
     )
 
+    remaining = item.amount_remaining()
+
+    if amount <= remaining:
+        item.amount_paid += amount
+        item.save()
+    else:
+        surplus = amount - remaining
+        item.amount_paid += remaining
+        distribute_surplus(item.wishlist, surplus)
+    item.save()
+
+    # Check if the item is fully funded and create an order
+    if item.amount_paid >= item.product.price:
+        Order.objects.create(
+            user=item.wishlist.user,
+            product=item.product,
+            quantity=1,
+            total_price=item.product.price,
+            status='pending',
+            wishlist_item=item,
+        )
+        messages.success(request, f"Wishlist item '{item.product.name}' has been fully"
+                                  f"funded and an order has been placed.")
+
 
 def handle_general_contribution(wishlist, amount, contributor_name, contact_info, message):
     """Handle general contributions and apply to items in the preferred order."""
+    # Log the contribution with additional details
+    Contribution.objects.create(
+        wishlist=wishlist,
+        contributor_name=contributor_name,
+        contact_info=contact_info,
+        message=message,
+        amount=amount,
+        date=timezone.now()
+    )
+
     items = wishlist.ordered_items()
     for item in items:
         remaining = item.amount_remaining()
@@ -330,16 +555,6 @@ def handle_general_contribution(wishlist, amount, contributor_name, contact_info
     if amount > 0:
         wishlist.user.cash += amount
         wishlist.user.save()
-
-    # Log the contribution with additional details
-    Contribution.objects.create(
-        wishlist=wishlist,
-        contributor_name=contributor_name,
-        contact_info=contact_info,
-        message=message,
-        amount=amount,
-        date=timezone.now()
-    )
 
 
 def distribute_surplus(wishlist, surplus):
@@ -364,6 +579,8 @@ def distribute_surplus(wishlist, surplus):
 
 
 # ########## PRODUCT VIEWS ##########
+
+
 def search_product(request):
     """
     Search products and their variants based on query terms.
@@ -371,6 +588,7 @@ def search_product(request):
     """
     query = request.GET.get('q', '').strip()  # Get search terms from query parameter
     products = Product.objects.none()  # Default empty queryset
+    wishlists = Wishlist.objects.not_expired().filter(user=request.user) if request.user.is_authenticated else []
 
     if query:
         search_terms = query.split()
@@ -379,20 +597,32 @@ def search_product(request):
         description_q = Q()
         other_q = Q()
 
+        # Build search conditions for each term
         for term in search_terms:
             title_q |= Q(name__icontains=term)
             description_q |= Q(description__icontains=term)
-            other_q |= Q(category__name__icontains=term) | Q(tags__name__icontains=term) | Q(variants__color__icontains=term) | Q(variants__size__icontains=term)
+            other_q |= (
+                Q(category__name__icontains=term) |
+                Q(tags__name__icontains=term) |
+                Q(variants__color__icontains=term) |
+                Q(variants__size__icontains=term)
+            )
 
+        # Filter the products with relevance-based annotation
         products = Product.objects.filter(
             title_q | description_q | other_q
         ).distinct().annotate(
-            relevance=Count('name', filter=title_q) * 3 + Count('description', filter=description_q) * 2 + Count('category', filter=other_q)
+            relevance=(
+                Count('name', filter=title_q) * 3 +
+                Count('description', filter=description_q) * 2 +
+                Count('category', filter=other_q)
+            )
         ).order_by('-relevance', 'name')
 
     context = {
         'products': products,
         'query': query,
+        'wishlists': wishlists,
     }
     return render(request, 'synergy_mall/search_results.html', context)
 
@@ -414,8 +644,11 @@ def add_product(request):
                 ProductImage.objects.create(product=product, image=image)
 
             # Handle product variants (colors and sizes)
-            colors = product_form.cleaned_data['colors']  # This will be a list of colors (or empty)
-            sizes = product_form.cleaned_data['sizes']  # This will be a list of sizes (or empty)
+            # colors = product_form.cleaned_data['colors']  # This will be a list of colors (or empty)
+            # sizes = product_form.cleaned_data['sizes']  # This will be a list of sizes (or empty)
+            colors = request.POST.getlist('colors')
+            sizes = request.POST.getlist('sizes')
+            print(colors)
 
             if colors or sizes:  # Create variants only if colors or sizes are provided
                 for color in colors or [None]:  # If no colors, use None
@@ -610,41 +843,18 @@ def edit_product(request, product_id):
             product = form.save(commit=False)
             product.save()
 
-            # Process the tags input
+            # Process tags
             tags_input = request.POST.get('tags')
             if tags_input:
                 tag_names = [tag.strip() for tag in tags_input.split(',')]
                 product.tags.set(Tag.objects.filter(name__in=tag_names))
 
-            # Handle variants (colors, sizes, SKU, and stock)
-            colors = form.cleaned_data['colors']  # Comma-separated string
-            sizes = form.cleaned_data['sizes']    # Comma-separated string
-            sku = form.cleaned_data.get('sku', None)
-            stock = form.cleaned_data.get('stock', None)
+            # Handle images (if any)
+            images = request.FILES.getlist('images')
+            for image in images:
+                ProductImage.objects.create(product=product, image=image)
 
-            # Convert comma-separated strings into lists
-            color_list = [color.strip() for color in colors.split(',')] if colors else []
-            size_list = [size.strip() for size in sizes.split(',')] if sizes else []
-
-            # Clear existing variants and recreate them
-            product.variants.all().delete()
-
-            for color in color_list:
-                for size in size_list:
-                    # Generate SKU if not provided
-                    if not sku:
-                        sku = f"{product.name[:3]}-{color[:2]}-{size[:2]}"  # Example SKU generation logic
-
-                    # Create the variant with the provided SKU and stock
-                    ProductVariant.objects.create(
-                        product=product,
-                        color=color,
-                        size=size,
-                        sku=sku,
-                        stock=stock if stock else 0  # Assign default stock if not provided
-                    )
-
-            messages.success(request, 'Product and variants updated successfully!')
+            messages.success(request, 'Product details updated successfully!')
             return redirect('product_list')
     else:
         form = InventoryProductForm(instance=product)
@@ -672,6 +882,85 @@ def product_detail(request, product_id):
         'variants': variants,
     }
     return render(request, 'synergy_mall/product_detail.html', context)
+
+
+@user_passes_test(is_vendor)
+def manage_product_variants(request, product_id):
+    product = get_object_or_404(Product, id=product_id, vendor=request.user)
+
+    if request.method == 'POST':
+        # Check if user is updating existing variant or creating a new one
+        if 'new_color' in request.POST:
+            # Handle new variant creation
+            new_color = request.POST.get('new_color')
+            new_size = request.POST.get('new_size')
+            new_stock = request.POST.get('new_stock')
+            new_price = request.POST.get('new_price')
+            new_sale_price = request.POST.get('new_sale_price')
+
+            # Automatically generate SKU for the new variant
+            new_sku = f"{product.name[:3].upper()}-{new_color[:3].upper()}-{new_size[:2].upper()}"
+
+            # Create new variant
+            ProductVariant.objects.create(
+                product=product,
+                color=new_color,
+                size=new_size,
+                sku=new_sku,
+                stock=new_stock,
+                price=new_price,
+                sale_price=new_sale_price
+            )
+            messages.success(request, 'New product variant created successfully!')
+        else:
+            # Handle existing variant update
+            form = ProductVariantForm(request.POST, product=product)
+            if form.is_valid():
+                color = form.cleaned_data['color']
+                size = form.cleaned_data['size']
+                stock = form.cleaned_data['stock']
+                price = form.cleaned_data['price']
+                sale_price = form.cleaned_data['sale_price']
+
+                # Check if a variant with the same color and size already exists
+                variant, created = ProductVariant.objects.get_or_create(
+                    product=product,
+                    color=color,
+                    size=size
+                )
+
+                # If the variant already exists, update the stock and price (not SKU)
+                variant.stock = stock
+                variant.price = price
+                variant.sale_price = sale_price
+                variant.save()
+
+                messages.success(request, 'Product variant updated successfully!')
+
+        return redirect('manage_product_variants', product_id=product.id)
+
+    # Prepopulate existing variants for dropdown
+    form = ProductVariantForm(product=product)
+    variants = product.variants.all()
+
+    return render(request, 'synergy_mall/manage_product_variants.html', {
+        'form': form,
+        'product': product,
+        'variants': variants,
+    })
+
+
+def vendor_products(request, vendor_id):
+    vendor = get_object_or_404(User, id=vendor_id, role='vendor')  # Ensure the user is a vendor
+
+    products = Product.objects.filter(vendor=vendor)  # Fetch all products belonging to the vendor
+
+    context = {
+        'vendor': vendor,
+        'products': products,
+    }
+
+    return render(request, 'synergy_mall/vendor_products.html', context)
 
 
 @user_passes_test(is_manager)
@@ -778,11 +1067,409 @@ def delete_product(request, product_id):
     return render(request, 'synergy_mall/delete_product.html', {'product': product})
 
 
+# ############# CART & ORDERS ################
+
+def view_cart(request):
+    # Retrieve the cart based on user or session
+    if request.user.is_authenticated:
+        cart, created = Cart.objects.get_or_create(user=request.user)
+    else:
+        session_key = request.session.session_key or request.session.create()
+        cart, created = Cart.objects.get_or_create(session_key=session_key)
+
+    # Calculate total price
+    total_price = cart.get_total_price()
+
+    return render(request, 'synergy_mall/cart.html', {
+        'cart': cart,
+        'total_price': total_price,
+    })
+
+
+def get_cart_items(request):
+    # Retrieve cart items based on user or session
+    if request.user.is_authenticated:
+        cart = Cart.objects.filter(user=request.user).first()
+    else:
+        session_key = request.session.session_key or request.session.create()
+        cart = Cart.objects.filter(session_key=session_key).first()
+
+    if not cart:
+        return JsonResponse({"success": False, "message": "Cart is empty.", "cart_items": []})
+
+    # Serialize cart items
+    cart_items = [
+        {
+            "id": item.id,  # Ensure item ID is included
+            "product_name": item.product.name,
+            "quantity": item.quantity,
+            "price": float(item.price),
+            "total_price": float(item.get_total_price())
+        }
+        for item in cart.items.all()
+    ]
+
+    return JsonResponse({"success": True, "cart_items": cart_items, "total_price": cart.get_total_price()})
+
+
+def get_cart(request):
+    """Retrieve or create the cart for the current user or session."""
+    if request.user.is_authenticated:
+        # Fetch or create a cart for the authenticated user
+        cart, created = Cart.objects.get_or_create(user=request.user)
+    else:
+        # Use session_key for unauthenticated users
+        session_key = request.session.session_key
+        if not session_key:
+            # Create a session if one does not exist
+            request.session.create()
+            session_key = request.session.session_key
+        # Fetch or create a cart for the session
+        cart, created = Cart.objects.get_or_create(session_key=session_key)
+
+    return cart
+
+
 def add_to_cart(request, product_id):
-    variant_id = request.POST.get('variant_id')
-    variant = get_object_or_404(ProductVariant, id=variant_id)
+    product = get_object_or_404(Product, id=product_id)
+    cart = get_cart(request)  # Get the appropriate cart for the user or guest
 
-    # Add variant to the cart (this will depend on your cart implementation)
-    # cart.add(variant=variant, quantity=1)
+    # Add or update the cart item
+    cart_item, created = CartItem.objects.get_or_create(
+        cart=cart, product=product, defaults={"price": product.price, "quantity": 1}
+    )
+    if not created:
+        cart_item.quantity += 1
+        cart_item.save()
 
-    return redirect('view_cart')
+    # Return JSON response
+    return JsonResponse({
+        "success": True,
+        "message": f"{product.name} was added to your cart.",
+        "cart_item_count": cart.items.count(),
+    })
+
+
+def remove_from_cart(request, item_id):
+    """
+    Remove an item from the cart and return a JSON response.
+    """
+    # Determine the cart (logged-in user or session-based)
+    if request.user.is_authenticated:
+        cart = Cart.objects.filter(user=request.user).first()
+    else:
+        session_key = request.session.session_key or request.session.create()
+        cart = Cart.objects.filter(session_key=session_key).first()
+
+    # If no cart exists, return an error
+    if not cart:
+        return JsonResponse({"success": False, "message": "Cart not found."})
+
+    # Attempt to find and delete the cart item
+    try:
+        cart_item = get_object_or_404(CartItem, id=item_id, cart=cart)
+        cart_item.delete()
+
+        # Calculate the updated total price and cart item count
+        total_price = cart.get_total_price()
+        cart_item_count = cart.items.count()
+
+        return JsonResponse({
+            "success": True,
+            "message": "Item removed from cart.",
+            "total_price": total_price,
+            "cart_item_count": cart_item_count,
+        })
+    except Exception as e:
+        return JsonResponse({"success": False, "message": str(e)})
+
+
+def create_order(request):
+    if request.method == 'POST':
+        # Collect common fields
+        name = request.POST.get('name')
+        email = request.POST.get('email')
+        phone_number = request.POST.get('phone_number')
+        shipping_address = request.POST.get('shipping_address')
+
+        # Validate required fields
+        if not all([name, email, phone_number, shipping_address]):
+            messages.error(request, "All fields are required.")
+            return render(request, 'synergy_mall/checkout.html', {
+                'cart': get_cart(request),
+                'total_price': get_cart(request).get_total_price(),
+            })
+
+        # Retrieve the cart
+        cart = get_cart(request)
+        if not cart or not cart.cartitem_set.exists():
+            messages.error(request, "Your cart is empty.")
+            return redirect('view_cart')
+
+        # Create orders for each item in the cart
+        cart_items = cart.cartitem_set.all()
+        for item in cart_items:
+            Order.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                product=item.product,
+                quantity=item.quantity,
+                total_price=item.get_total_price(),
+                status='pending',
+                shipping_address=shipping_address,
+                phone_number=phone_number,
+                email=email,
+            )
+
+        # Send confirmation email
+        order_summary = "\n".join([f"{item.quantity} x {item.product.name} - ${item.get_total_price()}" for item in cart_items])
+        total_price = cart.get_total_price()
+        message = (
+            f"Thank you for your order, {name}!\n\n"
+            f"Order Summary:\n{order_summary}\nTotal: ${total_price}\n\n"
+            f"Your order will be processed shortly.\n"
+            f"Shipping to: {shipping_address}\n\n"
+            f"Best regards,\nSynergy Mall Team"
+        )
+        send_mail(
+            'Order Confirmation',
+            message,
+            'no-reply@example.com',
+            [email],
+            fail_silently=False,
+        )
+
+        # Clear the cart
+        cart.cartitem_set.all().delete()
+
+        messages.success(request, "Your order has been placed successfully!")
+        return redirect('checkout_success')
+
+    # Render the checkout page
+    return render(request, 'synergy_mall/checkout.html', {
+        'cart': get_cart(request),
+        'total_price': get_cart(request).get_total_price(),
+    })
+
+
+def track_order(request):
+    if request.method == 'POST':
+        order_number = request.POST.get('order_number')
+        phone_number = request.POST.get('phone_number')
+
+        try:
+            # Fetch the order by number and phone number
+            order = Order.objects.get(order_number=order_number, phone_number=phone_number)
+
+            return render(request, 'synergy_mall/track_order_result.html', {
+                'order': order,
+            })
+        except Order.DoesNotExist:
+            return render(request, 'synergy_mall/track_order.html', {
+                'error': 'Order not found or details do not match. Please check and try again.',
+            })
+
+    return render(request, 'synergy_mall/track_order.html')
+
+
+def buy(request, product_id):
+    product = get_object_or_404(Product, id=product_id)
+
+    if request.method == "POST":
+        form = CheckoutForm(request.POST)
+        if form.is_valid():
+            # Process order and save it
+            order = Order.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                product=product,
+                quantity=1,  # Outright buy is always one item
+                total_price=product.price,
+                status='pending',  # Default status for a new order
+                **form.cleaned_data  # Include shipping or payment details from form
+            )
+            # Redirect to a success page or payment processor
+            return redirect('order_success')  # Replace with your success page URL
+    else:
+        form = CheckoutForm()
+
+    return render(request, 'synergy_mall/checkout.html', {
+        'form': form,
+        'product': product,
+    })
+
+
+@login_required
+def view_orders(request):
+    orders = Order.objects.filter(user=request.user).order_by('-order_date')
+    return render(request, 'synergy_mall/orders.html', {'orders': orders})
+
+
+def checkout(request):
+    cart = get_cart(request)
+
+    if request.method == "POST":
+        form = CheckoutForm(request.POST)
+        if form.is_valid():
+            # Create orders for each cart item
+            for item in cart.items.all():
+                Order.objects.create(
+                    user=request.user if request.user.is_authenticated else None,
+                    product=item.product,
+                    quantity=item.quantity,
+                    total_price=item.get_total_price(),
+                    status="pending",
+                )
+            # Clear the cart
+            cart.items.all().delete()
+            return redirect("order_success")
+    else:
+        form = CheckoutForm()
+
+    return render(request, "synergy_mall/checkout.html", {"cart": cart, "form": form})
+
+
+def checkout_success(request):
+    return render(request, 'synergy_mall/checkout_success.html')
+
+
+# ############# GIFTING AN ITEM ##############
+
+@csrf_exempt
+def fetch_receiver_wishlists(request):
+    if request.method == "POST":
+        try:
+            # Parse request body
+            data = json.loads(request.body)
+            receiver_details = data.get('receiver_details')
+
+            # Validate receiver details
+            if not receiver_details:
+                return JsonResponse({'success': False, 'message': 'Receiver details are required'}, status=400)
+
+            # Search for receiver by email, phone, or username
+            receiver = User.objects.filter(
+                Q(email=receiver_details) |
+                Q(phone_number=receiver_details) |
+                Q(username=receiver_details)
+            ).first()
+
+            if not receiver:
+                return JsonResponse({'success': False, 'message': 'User not found'}, status=404)
+
+            # Get wishlists for the receiver
+            wishlists = Wishlist.objects.filter(user=receiver).values('id', 'title')
+
+            # Return response
+            return JsonResponse({
+                'success': True,
+                'receiver_id': receiver.id,
+                'receiver_name': f"{receiver.first_name} {receiver.surname}",
+                'wishlists': list(wishlists)
+            })
+
+        except Exception as e:
+            # Log the error for debugging
+            print(f"Error during fetch_receiver_wishlists: {e}")
+            return JsonResponse({'success': False, 'message': f'An error occurred: {str(e)}'}, status=500)
+
+    # Invalid request method
+    return JsonResponse({'success': False, 'message': 'Invalid request method'}, status=400)
+
+
+def process_gift_payment(request, product_id):
+    product = get_object_or_404(Product, id=product_id)
+
+    if request.method == 'POST':
+        form = GiftPaymentForm(request.POST)
+        receiver_id = request.POST.get('receiver_id')
+        wishlist_id = request.POST.get('wishlist_id')
+
+        if form.is_valid():
+            message_to_receiver = form.cleaned_data['message_to_receiver']
+            giver_contact = None
+
+            # Get receiver and validate
+            receiver = get_object_or_404(User, id=receiver_id)
+
+            # Extract and validate `amount_given`
+            try:
+                amount_given = Decimal(request.POST.get('amount_given', '0'))
+                if amount_given < product.price:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'Amount must be at least the price of the product.'
+                    }, status=400)
+            except (ValueError, TypeError):
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Amount must be a valid number.'
+                }, status=400)
+
+            # Determine the `giver` and their contact info
+            if request.user.is_authenticated:
+                giver = request.user
+                giver_contact = giver.phone_number
+            else:
+                giver = None
+                giver_contact = form.cleaned_data['giver_contact']
+                if not giver_contact:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'Contact information is required for unauthenticated users.'
+                    }, status=400)
+
+            # Get or validate the wishlist
+            wishlist = Wishlist.objects.filter(
+                user=receiver, title="General List"
+            ).first() if not wishlist_id else get_object_or_404(Wishlist, id=wishlist_id)
+
+            # Handle surplus amount
+            surplus = amount_given - product.price
+            if surplus > 0:
+                receiver.cash += surplus
+                receiver.save()
+
+            # Create the Gift object
+            gift = Gift.objects.create(
+                giver=giver,
+                receiver=receiver,
+                product=product,
+                amount_given=amount_given,
+                wishlist=wishlist,
+                giver_contact=giver_contact,
+                message_to_receiver=message_to_receiver,
+            )
+
+            # Add the product to the wishlist as a WishlistItem
+            wishlist_item = WishlistItem.objects.create(
+                wishlist=wishlist,
+                product=product,
+                giver_contact=giver_contact,
+                message=message_to_receiver,
+                amount_paid=product.price,  # Fully paid for gifts
+            )
+
+            # Create an order for the gifted item
+            Order.objects.create(
+                user=receiver,
+                product=product,
+                quantity=1,
+                total_price=product.price,
+                status='pending',
+            )
+
+            messages.success(request, "Gift sent successfully, and the order has been placed!")
+            return redirect('index')  # Or redirect to a success page
+        else:
+            messages.error(request, "Invalid form submission.")
+    else:
+        form = GiftPaymentForm()
+
+    return render(request, 'synergy_mall/gift_payment.html', {'form': form, 'product': product})
+
+
+@login_required
+def received_gifts(request):
+    # Fetch all gifts for the logged-in user
+    gifts = Gift.objects.filter(receiver=request.user).select_related('giver', 'product', 'wishlist')
+
+    return render(request, 'synergy_mall/received_gifts.html', {'gifts': gifts})

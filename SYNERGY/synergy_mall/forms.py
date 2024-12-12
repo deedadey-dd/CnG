@@ -1,5 +1,5 @@
 from django import forms
-from .models import Product, Category, Wishlist, WishlistItem, CustomItem, ProductImage
+from .models import Product, Category, Wishlist, WishlistItem, CustomItem, ProductImage, ProductVariant, Gift
 
 
 class MultipleFileInput(forms.ClearableFileInput):
@@ -33,8 +33,8 @@ class ProductImageForm(forms.ModelForm):
 
 class ProductForm(forms.ModelForm):
     images = MultipleFileField()  # To allow multiple file uploads
-    colors = forms.CharField(required=False, help_text="Enter multiple colors separated by commas.")
-    sizes = forms.CharField(required=False, help_text="Enter multiple sizes separated by commas.")
+    # colors = forms.CharField(required=False, help_text="Enter multiple colors separated by commas.")
+    # sizes = forms.CharField(required=False, help_text="Enter multiple sizes separated by commas.")
 
     class Meta:
         model = Product
@@ -63,6 +63,38 @@ class ProductForm(forms.ModelForm):
         if sizes:
             return [size.strip() for size in sizes.split(',')]
         return []
+
+
+class ProductVariantForm(forms.ModelForm):
+    colors = forms.ChoiceField(required=False, label="Color", widget=forms.Select(attrs={'class': 'form-control'}))
+    sizes = forms.ChoiceField(required=False, label="Size", widget=forms.Select(attrs={'class': 'form-control'}))
+    sku = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'readonly': 'readonly'}))  # SKU will be generated and readonly
+
+    class Meta:
+        model = ProductVariant
+        fields = ['color', 'size', 'sku', 'stock', 'price', 'sale_price']
+
+    def __init__(self, *args, **kwargs):
+        product = kwargs.pop('product', None)
+        super().__init__(*args, **kwargs)
+
+        # Prepopulate choices for colors and sizes from existing variants
+        if product:
+            self.fields['colors'].choices = [(v.color, v.color) for v in product.variants.all() if v.color]
+            self.fields['sizes'].choices = [(v.size, v.size) for v in product.variants.all() if v.size]
+
+    def clean_sku(self):
+        """Generate the SKU automatically based on the product, color, and size"""
+        color = self.cleaned_data.get('color')
+        size = self.cleaned_data.get('size')
+        product = self.instance.product
+
+        if color and size:
+            # Generate SKU as a combination of product name, color, and size (e.g., PROD-RED-M)
+            sku = f"{product.name[:3].upper()}-{color[:3].upper()}-{size[:2].upper()}"
+            return sku
+
+        return self.cleaned_data['sku']
 
 
 class BulkProductUploadForm(forms.Form):
@@ -106,27 +138,11 @@ class BulkCategoryUploadForm(forms.Form):
 #         }
 
 class InventoryProductForm(forms.ModelForm):
-    # Define fields for colors and sizes
-    colors = forms.CharField(
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter colors separated by commas'})
-    )
-    sizes = forms.CharField(
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter sizes separated by commas'})
-    )
-    sku = forms.CharField(
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter SKU for the product variant'})
-    )
-    stock = forms.IntegerField(
-        required=False,
-        widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Enter stock for the variant'})
-    )
+    images = MultipleFileField(required=False)  # Multiple images support for the product
 
     class Meta:
         model = Product
-        fields = ['name', 'description', 'price', 'sale_price', 'category', 'condition', 'tags']  # Include other fields as needed
+        fields = ['name', 'description', 'price', 'sale_price', 'category', 'condition']  # Removed colors, sizes, and SKU
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control'}),
@@ -181,3 +197,25 @@ class CustomItemForm(forms.ModelForm):
     class Meta:
         model = CustomItem
         fields = ['name', 'description', 'price']
+
+
+class GiftPaymentForm(forms.ModelForm):
+    giver_contact = forms.CharField(max_length=255, required=True, label="Your Contact Info (Email or Phone)")
+    message_to_receiver = forms.CharField(widget=forms.Textarea, required=False, label="Message to Receiver", max_length=200)
+
+    class Meta:
+        model = Gift
+        fields = ['giver_contact', 'message_to_receiver']
+
+
+class GuestCheckoutForm(forms.Form):
+    name = forms.CharField(max_length=255, required=True)
+    email = forms.EmailField(required=True)
+    shipping_address = forms.CharField(widget=forms.Textarea, required=True)
+
+
+class CheckoutForm(forms.Form):
+    name = forms.CharField(max_length=255, required=True)
+    email = forms.EmailField(required=True)
+    phone = forms.CharField(max_length=15, required=True)
+    address = forms.CharField(widget=forms.Textarea, required=True)

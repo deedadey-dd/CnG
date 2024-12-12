@@ -1,0 +1,7 @@
+* Suspend button should change to Activate
+* Vendors should be able to print their items and stock
+* Because orders can come from wishlists, we need to specify where the order came from
+        - wishlist
+        - Store
+        - Cart
+        - etc.

@@ -1,20 +1,153 @@
 {% extends 'base.html' %}
-
+{% load static %}
 {% block content %}
 <div class="container">
     <h2>Search Results for "{{ query }}"</h2>
 
-    {% if products %}
-        <div class="row">
-            {% for product in products %}
-            <div class="col-md-4">
-                <div class="card mb-4">
-                    <img src="{{ product.image.url }}" class="card-img-top" alt="{{ product.name }}">
+        {% if products %}
+            <div class="row">
+                {% for product in products %}
+            <div class="col-md-4 mb-0">
+                <div class="card mb-2 mt-0">
+                    <!-- Wrap the carousel in an anchor tag to make the image clickable -->
+                    <a href="#" data-toggle="modal" data-target="#productModal{{ product.id }}">
+                        <!-- Carousel for Product Images -->
+                        <div id="productCarousel{{ product.id }}" class="carousel slide" data-ride="carousel">
+                            <div class="carousel-inner">
+                                {% for image in product.images.all %}
+                                <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                    <img src="{{ image.image.url }}" class="d-block w-100 product-image" alt="{{ product.name }}">
+                                </div>
+                                {% empty %}
+                                <div class="carousel-item active">
+                                    <img src="{% static 'images/no-image-available.png' %}" class="d-block w-100 product-image" alt="No Image Available">
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <a class="carousel-control-prev" href="#productCarousel{{ product.id }}" role="button" data-slide="prev">
+                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                <span class="sr-only">Previous</span>
+                            </a>
+                            <a class="carousel-control-next" href="#productCarousel{{ product.id }}" role="button" data-slide="next">
+                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                <span class="sr-only">Next</span>
+                            </a>
+                        </div>
+                    </a>
+
+                    <!-- Product details in the card body -->
                     <div class="card-body">
-                        <h5 class="card-title">{{ product.name }}</h5>
-                        <p class="card-text">{{ product.description|truncatewords:20 }}</p>
-                        <p class="card-text">Price: {{ product.price }}</p>
-                        <a href="#" class="btn btn-primary">Buy Item</a>
+                        <p class="card-title mb-0 mt-0">{{ product.name }}</p>
+                        <p class="card-text mb-0 mt-0"><strong>${{ product.price }}</strong></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Product Detail Modal -->
+            <div class="modal fade" id="productModal{{ product.id }}" tabindex="-1" role="dialog" aria-labelledby="productModalLabel{{ product.id }}" aria-hidden="true">
+                <div class="modal-dialog modal-lg" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="productModalLabel{{ product.id }}">{{ product.name }}</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <!-- Carousel in modal for larger image display -->
+                            <div id="modalCarousel{{ product.id }}" class="carousel slide" data-ride="carousel">
+                                <div class="carousel-inner">
+                                    {% for image in product.images.all %}
+                                    <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                        <img src="{{ image.image.url }}" class="d-block w-100 product-image2" alt="{{ product.name }}">
+                                    </div>
+                                    {% empty %}
+                                    <div class="carousel-item active">
+                                        <img src="{% static 'images/no-image-available.png' %}" class="d-block w-100 product-image" alt="No Image Available">
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                <a class="carousel-control-prev" href="#modalCarousel{{ product.id }}" role="button" data-slide="prev">
+                                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                    <span class="sr-only">Previous</span>
+                                </a>
+                                <a class="carousel-control-next" href="#modalCarousel{{ product.id }}" role="button" data-slide="next">
+                                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                    <span class="sr-only">Next</span>
+                                </a>
+                            </div>
+
+                            <!-- Product details in the modal -->
+                            <div class="mt-3">
+                                <h5>Description:</h5>
+                                <p>{{ product.description }}</p>
+
+                                <!-- Price and Sale Price -->
+                                <h5>Price: ${{ product.price }}</h5>
+                                {% if product.sale_price and product.is_on_sale %}
+                                <h5>Sale Price: ${{ product.sale_price }}</h5>
+                                {% endif %}
+
+                                <!-- Variant Selection -->
+                                <form id="variantForm{{ product.id }}" method="POST">
+                                    {% csrf_token %}
+
+                                    <div class="row">
+                                        <!-- Color Dropdown -->
+                                        <div class="form-group col-md-6">
+                                            <label for="colorSelect{{ product.id }}">Color</label>
+                                            <select id="colorSelect{{ product.id }}" name="color" class="form-control">
+                                                {% for variant in product.variants.all %}
+                                                    <option value="{{ variant.color }}">{{ variant.color }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+
+                                        <!-- Size Dropdown -->
+                                        <div class="form-group col-md-6">
+                                            <label for="sizeSelect{{ product.id }}">Size</label>
+                                            <select id="sizeSelect{{ product.id }}" name="size" class="form-control">
+                                                {% for variant in product.variants.all %}
+                                                    <option value="{{ variant.size }}">{{ variant.size }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    </div>
+
+
+                                    <!-- Show buttons based on user role -->
+                                    {% if user.is_authenticated and user.role != 'vendor' %}
+                                        <!-- Add to Wishlist -->
+                                        <div class="dropdown mt-2">
+                                            <button class="btn btn-success dropdown-toggle btn-block" type="button" id="wishlistDropdown{{ product.id }}" data-toggle="dropdown" aria-expanded="false">
+                                                Add to Wishlist
+                                            </button>
+                                            <ul class="dropdown-menu" aria-labelledby="wishlistDropdown{{ product.id }}">
+                                                {% if wishlists %}
+                                                    {% for wishlist in wishlists %}
+                                                        <li>
+                                                            <a class="dropdown-item" href="#" onclick="addToWishlist({{ product.id }}, {{ wishlist.id }})">{{ wishlist.title }}</a>
+                                                        </li>
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <li><span class="dropdown-item">No wishlists available</span></li>
+                                                {% endif %}
+                                            </ul>
+                                        </div>
+                                    {% endif %}
+
+                                    <!-- Add to Cart and Purchase Options -->
+                                    <div class="mt-3">
+                                        <a href="#" class="btn btn-primary">Buy Item</a>
+                                        <a href="#" class="btn btn-secondary">Gift Item</a>
+                                        <a href="#" class="btn btn-warning">Add to Cart</a>
+                                    </div>
+                                    <!-- Vendor Details -->
+                                    <h5>Store: <a href="{% url 'vendor_products' product.vendor.id %}">{{ product.vendor.vendor_profile.company_name }}</a></h5>
+
+                                </form>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -45,4 +178,34 @@
         <p>No products found matching "{{ query }}".</p>
     {% endif %}
 </div>
+
+<script>
+    function addToWishlist(productId, wishlistId) {
+        const csrfToken = "{{ csrf_token }}";  // Use the Django-provided CSRF token
+
+        // Make an AJAX request to add the product to the wishlist
+        fetch("{% url 'add_to_wishlist_ajax' %}", {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": csrfToken,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                product_id: productId,
+                wishlist_id: wishlistId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`${data.product_name} added to ${data.wishlist_title}`);
+            } else {
+                alert("Error: " + data.message);
+            }
+        })
+        .catch(error => {
+            console.error("Error adding to wishlist:", error);
+        });
+    }
+</script>
 {% endblock %}

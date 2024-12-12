@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+    <h2>Gift {{ product.name }}</h2>
+    <form method="POST">
+        {% csrf_token %}
+        {{ form.as_p }}
+
+        <div class="form-group">
+            <label for="receiverWishlist">Select Receiver's Wishlist</label>
+            <select id="receiverWishlist" name="wishlist_id" class="form-control">
+                <option value="general">General Wishlist</option>
+                {% for wishlist in receiver_wishlists %}
+                <option value="{{ wishlist.id }}">{{ wishlist.title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-success">Complete Payment and Gift</button>
+    </form>
+</div>
+{% endblock %}

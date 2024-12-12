@@ -1,16 +1,20 @@
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.shortcuts import render, redirect
 from .forms import UserRegistrationForm, CustomLoginForm, VendorDetailsForm, VendorProfileForm, \
-    UserProfileForm
+    UserProfileForm, CoinTransferForm
 from django.contrib.auth import authenticate, login, logout, get_backends
 from django.contrib import messages
-from .models import User
+from .models import User, transfer_coins
 
 
 def user_register(request):
     if request.method == 'POST':
         form = UserRegistrationForm(request.POST, request.FILES)
         if form.is_valid():
+            user = form.save(commit=False)
+            # Set the user role as 'regular'
+            user.role = 'regular'
             form.save()
             return redirect('custom_login')
     else:
@@ -118,19 +122,23 @@ def logout_me_out(request):
     return redirect('index')
 
 
-# @login_required
-# def profile_view(request):
-#     user = request.user
-#
-#     if request.method == 'POST':
-#         form = ProfileUpdateForm(request.POST, request.FILES, instance=user)
-#         if form.is_valid():
-#             form.save()
-#             messages.success(request, "Your profile has been updated.")
-#             return redirect('profile')  # Redirect back to profile after successful update
-#         else:
-#             messages.error(request, "Please correct the error(s) below.")
-#     else:
-#         form = ProfileUpdateForm(instance=user)
-#
-#     return render(request, 'users/profile.html', {'form': form})
+@login_required
+def transfer_coins_view(request):
+    user_coins = request.user.coin_account
+    if request.method == 'POST':
+        form = CoinTransferForm(request.POST)
+        if form.is_valid():
+            recipient = form.cleaned_data['recipient']
+            amount = form.cleaned_data['amount']
+            message = form.cleaned_data.get('message', '')
+
+            try:
+                transfer_coins(request.user, recipient, amount)
+                messages.success(request, f"Successfully transferred {amount} coins to {recipient.username}.")
+                return redirect('dashboard')
+            except ValidationError as e:
+                form.add_error(None, str(e))
+    else:
+        form = CoinTransferForm()
+
+    return render(request, 'coins/transfer_coins.html', {'form': form, 'total_coins': user_coins.total_coins})

@@ -1,67 +1,22 @@
-<!-- templates/index.html -->
-
 {% extends "base.html" %}
 
 {% block title %}Home{% endblock %}
 {% load static %}
 
 {% block content %}
+
+<!--Main Body of Page-->
 <div class="container mt-5">
     <div class="row">
         {% for product in products_page %}
-        <div class="col-md-4">
-            <div class="card mb-4">
-                <!-- Carousel for Product Images -->
-                <div id="productCarousel{{ product.id }}" class="carousel slide" data-ride="carousel">
-                    <div class="carousel-inner">
-                        {% for image in product.images.all %}
-                        <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                            <img src="{{ image.image.url }}" class="d-block w-100 product-image" alt="{{ product.name }}">
-                        </div>
-                        {% empty %}
-                        <div class="carousel-item active">
-                            <img src="{% static 'images/no-image-available.png' %}" class="d-block w-100 product-image" alt="No Image Available">
-                        </div>
-                        {% endfor %}
-                    </div>
-                    <a class="carousel-control-prev" href="#productCarousel{{ product.id }}" role="button" data-slide="prev">
-                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                        <span class="sr-only">Previous</span>
-                    </a>
-                    <a class="carousel-control-next" href="#productCarousel{{ product.id }}" role="button" data-slide="next">
-                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                        <span class="sr-only">Next</span>
-                    </a>
-                </div>
-
-                <!-- Product details in the card body -->
-                <div class="card-body">
-                    <h5 class="card-title">{{ product.name }}</h5>
-                    <p class="card-text">Price: ${{ product.price }}</p>
-                    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#productModal{{ product.id }}">
-                        View Details
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Product Detail Modal -->
-        <div class="modal fade" id="productModal{{ product.id }}" tabindex="-1" role="dialog" aria-labelledby="productModalLabel{{ product.id }}" aria-hidden="true">
-            <div class="modal-dialog modal-lg" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="productModalLabel{{ product.id }}">{{ product.name }}</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
-                    </div>
-                    <div class="modal-body">
-                        <!-- Carousel in modal for larger image display -->
-                        <div id="modalCarousel{{ product.id }}" class="carousel slide" data-ride="carousel">
+            <div class="col-6 col-md-3">
+                <div class="card mb-2 mt-0">
+                    <a href="#" data-toggle="modal" data-target="#productModal{{ product.id }}">
+                        <div id="productCarousel{{ product.id }}" class="carousel slide" data-ride="carousel">
                             <div class="carousel-inner">
                                 {% for image in product.images.all %}
                                 <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                                    <img src="{{ image.image.url }}" class="d-block w-100 product-image2" alt="{{ product.name }}">
+                                    <img src="{{ image.image.url }}" class="d-block w-100 product-image" alt="{{ product.name }}">
                                 </div>
                                 {% empty %}
                                 <div class="carousel-item active">
@@ -69,35 +24,252 @@
                                 </div>
                                 {% endfor %}
                             </div>
-                            <a class="carousel-control-prev" href="#modalCarousel{{ product.id }}" role="button" data-slide="prev">
+                            <a class="carousel-control-prev" href="#productCarousel{{ product.id }}" role="button" data-slide="prev">
                                 <span class="carousel-control-prev-icon" aria-hidden="true"></span>
                                 <span class="sr-only">Previous</span>
                             </a>
-                            <a class="carousel-control-next" href="#modalCarousel{{ product.id }}" role="button" data-slide="next">
+                            <a class="carousel-control-next" href="#productCarousel{{ product.id }}" role="button" data-slide="next">
                                 <span class="carousel-control-next-icon" aria-hidden="true"></span>
                                 <span class="sr-only">Next</span>
                             </a>
                         </div>
+                    </a>
 
-                        <!-- Product details in the modal -->
-                        <div class="mt-3">
-                            <h5>Description:</h5>
-                            <p>{{ product.description }}</p>
-                            <h5>Price: ${{ product.price }}</h5>
-                            {% if product.sale_price %}
-                            <h5>Sale Price: ${{ product.sale_price }}</h5>
-                            {% endif %}
+                    <div class="card-body">
+                        <p class="card-text mb-0 mt-0"><strong>${{ product.price }}</strong></p>
+                        <p class="card-title mb-0 mt-0">{{ product.name }}</p>
+                        <p class="mb-0 mt-0"><small class="mb-0 mt-0">
+                            {{ product.vendor.vendor_profile.location }} • {{ product.condition|title}} •
+                        </small></p>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <!-- Gift Item Button -->
+                        <button type="button" class="btn btn-success flex-fill" data-toggle="modal" data-target="#giftItemModal{{ product.id }}">
+                            Gift Item
+                        </button>
+
+                        <!-- Dropdown for Add to Cart and Buy Now -->
+                        <div class="dropdown flex-fill">
+                            <button
+                                class="btn btn-warning dropdown-toggle w-100"
+                                type="button"
+                                id="cartDropdown{{ product.id }}"
+                                data-toggle="dropdown"
+                                aria-haspopup="true"
+                                aria-expanded="false"
+                            >
+                                Add to Cart
+                            </button>
+                            <div class="dropdown-menu w-100" aria-labelledby="cartDropdown{{ product.id }}">
+                                <!-- Add to Cart Option -->
+                                <a href="javascript:void(0);" class="dropdown-item" onclick="addToCart({{ product.id }})">
+                                    Add to Cart
+                                </a>
+                                <!-- Buy Now Option -->
+                                <a href="{% url 'buy' product.id %}" class="dropdown-item">
+                                    Buy Now
+                                </a>
+                            </div>
                         </div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                        <a href="#" class="btn btn-success">Add to Cart</a>
+
+
+                </div>
+            </div>
+
+            <!-- Product Detail Modal -->
+            <div class="modal fade" id="productModal{{ product.id }}" tabindex="-1" role="dialog" aria-labelledby="productModalLabel{{ product.id }}" aria-hidden="true">
+                <div class="modal-dialog modal-lg" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="productModalLabel{{ product.id }}">{{ product.name }}</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <!-- Two-column Layout -->
+                            <div class="row">
+                                <!-- Left Column: Carousel -->
+                                <div class="col-md-8">
+                                    <div id="modalCarousel{{ product.id }}" class="carousel slide" data-ride="carousel">
+                                        <div class="carousel-inner">
+                                            {% for image in product.images.all %}
+                                            <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                                <img src="{{ image.image.url }}" class="d-block w-100 product-image2" alt="{{ product.name }}">
+                                            </div>
+                                            {% empty %}
+                                            <div class="carousel-item active">
+                                                <img src="{% static 'images/no-image-available.png' %}" class="d-block w-100 product-image" alt="No Image Available">
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        <a class="carousel-control-prev" href="#modalCarousel{{ product.id }}" role="button" data-slide="prev">
+                                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                            <span class="sr-only">Previous</span>
+                                        </a>
+                                        <a class="carousel-control-next" href="#modalCarousel{{ product.id }}" role="button" data-slide="next">
+                                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                            <span class="sr-only">Next</span>
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <!-- Right Column: Product Details -->
+                                <div class="col-md-4">
+                                    <h5>Description:</h5>
+                                    <p>{{ product.description }}</p>
+
+                                    <!-- Price and Sale Price -->
+                                    <h5>Price: ${{ product.price }}</h5>
+                                    {% if product.sale_price and product.is_on_sale %}
+                                    <h5>Sale Price: ${{ product.sale_price }}</h5>
+                                    {% endif %}
+
+                                    <!-- Variant Selection -->
+                                    <form id="variantForm{{ product.id }}" method="POST">
+                                        {% csrf_token %}
+                                        <div class="form-group">
+                                            <label for="colorSelect{{ product.id }}">Color</label>
+                                            <select id="colorSelect{{ product.id }}" name="color" class="form-control">
+                                                {% for variant in product.variants.all %}
+                                                    <option value="{{ variant.color }}">{{ variant.color }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="sizeSelect{{ product.id }}">Size</label>
+                                            <select id="sizeSelect{{ product.id }}" name="size" class="form-control">
+                                                {% for variant in product.variants.all %}
+                                                    <option value="{{ variant.size }}">{{ variant.size }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+
+                                        <!-- Add to Cart and Purchase Options -->
+                                        <div class="mt-3">
+                                            <a href="{% url 'buy' product.id %}" class="btn btn-primary btn-block">Buy Item</a>
+                                            <button type="button" class="btn btn-success btn-block" data-toggle="modal" data-target="#giftItemModal{{ product.id }}">
+                                                Gift Item
+                                            </button>
+                                            <a href="javascript:void(0);" class="btn btn-warning btn-block" onclick="addToCart({{ product.id }})">
+                                                Add to Cart
+                                            </a>
+                                        </div>
+
+                                        <!-- Wishlist Dropdown -->
+                                        {% if user.is_authenticated and user.role != 'vendor' %}
+                                        <div class="dropdown mt-2">
+                                            <button class="btn btn-danger dropdown-toggle btn-block" type="button" id="wishlistDropdown{{ product.id }}" data-toggle="dropdown" aria-expanded="false">
+                                                Add to Wishlist
+                                            </button>
+                                            <ul class="dropdown-menu" aria-labelledby="wishlistDropdown{{ product.id }}">
+                                                {% if wishlists %}
+                                                    {% for wishlist in wishlists %}
+                                                        <li>
+                                                            <a class="dropdown-item" href="#" onclick="addToWishlist({{ product.id }}, {{ wishlist.id }})">{{ wishlist.title }}</a>
+                                                        </li>
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <li><span class="dropdown-item">No wishlists available</span></li>
+                                                {% endif %}
+                                            </ul>
+                                        </div>
+                                        {% endif %}
+
+                                        <!-- Vendor Details -->
+                                        <h5 class="mt-3">Store: <a href="{% url 'vendor_products' product.vendor.id %}">{{ product.vendor.vendor_profile.company_name }}</a></h5>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+
+            <!-- Gifting Modal -->
+            <div class="modal fade" id="giftItemModal{{ product.id }}" tabindex="-1" role="dialog" aria-labelledby="giftItemModalLabel{{ product.id }}" aria-hidden="true">
+                <div class="modal-dialog modal-lg" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="giftItemModalLabel{{ product.id }}">Gift {{ product.name }}</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <!-- Step 1: Enter Receiver Details -->
+                            <div id="step1{{ product.id }}">
+                                <form onsubmit="event.preventDefault(); fetchReceiverWishlists({{ product.id }});">
+                                    {% csrf_token %}
+                                    <div class="form-group">
+                                        <label for="receiverDetails{{ product.id }}">Receiver's Email, Phone, or Username</label>
+                                        <input type="text" class="form-control" id="receiverDetails{{ product.id }}" required placeholder="Enter receiver's details">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Find Receiver</button>
+                                </form>
+                            </div>
+
+                            <!-- Step Two: Payment Form -->
+                            <div id="step2{{ product.id }}" style="display: none;">
+                                <!-- Receiver Field -->
+                                <div class="form-group">
+                                    <label for="receiverName{{ product.id }}">Receiver</label>
+                                    <input type="text" id="receiverName{{ product.id }}" class="form-control" readonly placeholder="Receiver's Name">
+                                </div>
+                                <form id="giftPaymentForm{{ product.id }}" action="{% url 'process_gift_payment' product.id %}" method="POST">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="receiver_id" id="receiverId{{ product.id }}">
+                                    <input type="hidden" name="wishlist_id" id="receiverWishlist{{ product.id }}">
+
+                                    <div id="wishlistDropdownContainer{{ product.id }}" class="mt-3">
+                                        <div class="dropdown">
+                                            <button class="btn btn-success dropdown-toggle btn-block" type="button" id="wishlistDropdown{{ product.id }}" data-toggle="dropdown" aria-expanded="false">
+                                                Select Wishlist
+                                            </button>
+                                            <ul class="dropdown-menu" id="wishlistDropdownMenu{{ product.id }}" aria-labelledby="wishlistDropdown{{ product.id }}">
+                                                <!-- Options will be dynamically added here -->
+                                                <li><span class="dropdown-item">Loading...</span></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="giver{{ product.id }}">Your Name</label>
+                                        <input type="text" id="giver{{ product.id }}" name="giver" class="form-control" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="giverContact{{ product.id }}">Your Contact</label>
+                                        <input type="text" id="giverContact{{ product.id }}" name="giver_contact" class="form-control" required>
+                                    </div>
+
+                                    <!-- Amount to be Given -->
+                                    <div class="form-group">
+                                        <label for="amountGiven{{ product.id }}">Amount to Give</label>
+                                        <input type="number" id="amountGiven{{ product.id }}" name="amount_given" class="form-control" min="{{ product.price }}" required placeholder="Enter amount to give">
+                                        <small class="form-text text-muted">
+                                            The amount must be at least ${{ product.price }}. Any extra will be paid out as cash.
+                                        </small>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="messageToReceiver{{ product.id }}">Message to Receiver</label>
+                                        <textarea id="messageToReceiver{{ product.id }}" name="message_to_receiver" class="form-control"></textarea>
+                                    </div>
+
+                                    <button type="submit" class="btn btn-primary">Confirm and Gift</button>
+                                </form>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
         {% endfor %}
     </div>
+
 
     <!-- Pagination -->
     <nav aria-label="Page navigation">
@@ -119,9 +291,6 @@
     </nav>
 </div>
 
-
-
-<!-- Include JavaScript for AJAX -->
 <script>
     function addToWishlist(productId, wishlistId) {
         const csrfToken = "{{ csrf_token }}";  // Use the Django-provided CSRF token
@@ -150,5 +319,160 @@
             console.error("Error adding to wishlist:", error);
         });
     }
+
+    function fetchReceiverWishlists(productId) {
+        const receiverDetails = document.getElementById(`receiverDetails${productId}`).value;
+        const csrfToken = "{{ csrf_token }}";
+
+        fetch("{% url 'fetch_receiver_wishlists' %}", {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": csrfToken,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ receiver_details: receiverDetails })
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log(data); // Debugging
+
+            if (data.success) {
+                const wishlistDropdownMenu = document.getElementById(`wishlistDropdownMenu${productId}`);
+                wishlistDropdownMenu.innerHTML = ''; // Clear existing options
+
+                if (data.wishlists.length > 0) {
+                    data.wishlists.forEach(wishlist => {
+                        const listItem = document.createElement("li");
+                        const link = document.createElement("a");
+                        link.className = "dropdown-item";
+                        link.href = "#";
+                        link.textContent = wishlist.title;
+                        link.onclick = (e) => {
+                            e.preventDefault(); // Prevent navigation
+                            selectWishlist(productId, wishlist.id, wishlist.title);
+                        };
+                        listItem.appendChild(link);
+                        wishlistDropdownMenu.appendChild(listItem);
+                    });
+                } else {
+                    const noWishlistItem = document.createElement("li");
+                    noWishlistItem.innerHTML = '<span class="dropdown-item">No wishlists available</span>';
+                    wishlistDropdownMenu.appendChild(noWishlistItem);
+                }
+
+                // Set receiver details in Step Two
+                const receiverNameField = document.getElementById(`receiverName${productId}`);
+                if (receiverNameField) {
+                    receiverNameField.value = data.receiver_name || "Unknown Receiver";
+                }
+
+                // Update modal title with receiver's name
+                const modalTitle = document.getElementById(`giftItemModalLabel${productId}`);
+                if (modalTitle) {
+                    modalTitle.textContent = `Gift ${modalTitle.dataset.productName} to ${data.receiver_name || "Unknown Receiver"}`;
+                }
+
+                // Store receiver ID
+                document.getElementById(`receiverId${productId}`).value = data.receiver_id;
+
+                // Proceed to Step Two
+                setTimeout(() => {
+                    document.getElementById(`step1${productId}`).style.display = "none";
+                    document.getElementById(`step2${productId}`).style.display = "block";
+                }, 100);
+            } else {
+                alert("User not found.");
+            }
+        })
+        .catch(error => {
+            console.error("Error fetching wishlists:", error);
+        });
+    }
+
+    function selectWishlist(productId, wishlistId, wishlistTitle) {
+        // Change the button text to the selected wishlist name
+        const button = document.getElementById(`wishlistDropdown${productId}`);
+        button.textContent = wishlistTitle;
+
+        // Store the selected wishlistId in a hidden input
+        const wishlistInput = document.getElementById(`receiverWishlist${productId}`);
+        if (wishlistInput) {
+            wishlistInput.value = wishlistId;
+        }
+
+        console.log(`Selected Wishlist: ${wishlistTitle} (ID: ${wishlistId})`);
+    }
+
+    function displaySuccessMessage(message) {
+        const messageContainer = document.getElementById("message-container");
+        messageContainer.innerHTML = `
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        `;
+        autoDismissAlert();
+    }
+
+    function displayErrorMessage(message) {
+        const messageContainer = document.getElementById("message-container");
+        messageContainer.innerHTML = `
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        `;
+        autoDismissAlert();
+    }
+
+    function autoDismissAlert() {
+        setTimeout(() => {
+            const alert = document.querySelector(".alert");
+            if (alert) alert.remove();
+        }, 5000); // Auto-dismiss after 5 seconds
+    }
+
+    function addToCart(productId) {
+        fetch(`/cart/add/${productId}/`, {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": "{{ csrf_token }}",  // Ensure CSRF protection
+                "Content-Type": "application/json",
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update cart item count in the floating icon
+                const cartBadge = document.querySelector("#floating-cart .badge");
+                if (cartBadge) {
+                    cartBadge.textContent = data.cart_item_count;
+                }
+
+                // Close the modal if it's open
+                const activeModal = document.querySelector('.modal.show');
+                if (activeModal) {
+                    $(activeModal).modal('hide');
+                }
+
+                // Display success message at the top of the page
+                displaySuccessMessage(data.message);
+            } else {
+                // Display an error message if something went wrong
+                displayErrorMessage("Failed to add item to the cart. Please try again.");
+            }
+        })
+        .catch(error => {
+            console.error("Error adding to cart:", error);
+            displayErrorMessage("An unexpected error occurred.");
+        });
+    }
+
 </script>
+
+
 {% endblock %}
