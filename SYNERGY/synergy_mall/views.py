@@ -523,9 +523,7 @@ def handle_item_contribution(item, amount, contributor_name, contact_info, messa
             wishlist_item=item,
         )
         messages.success(request, f"Wishlist item '{item.product.name}' has been fully"
-                                  f"funded and an order has been placed."
-                         )
-
+                                  f"funded and an order has been placed.")
 
 
 def handle_general_contribution(wishlist, amount, contributor_name, contact_info, message):
@@ -1427,8 +1425,8 @@ def process_gift_payment(request, product_id):
             # Handle surplus amount
             surplus = amount_given - product.price
             if surplus > 0:
-                receiver.profile.cash_on_hand += surplus
-                receiver.profile.save()
+                receiver.cash += surplus
+                receiver.save()
 
             # Create the Gift object
             gift = Gift.objects.create(
