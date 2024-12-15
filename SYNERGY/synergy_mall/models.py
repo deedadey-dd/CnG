@@ -1,3 +1,4 @@
+from django.core.validators import RegexValidator
 from django.db import models
 from users.models import User
 from django.conf import settings
@@ -264,7 +265,10 @@ class Order(models.Model):
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='pending')
     shipping_address = models.TextField()
-    phone_number = models.CharField(max_length=15)
+    phone_number = models.CharField(
+        max_length=15,
+        validators=[RegexValidator(r'^\+?1?\d{9,15}$', message="Enter a valid phone number.")],
+    )
     email = models.EmailField()
     order_date = models.DateTimeField(auto_now_add=True)
     shipped_at = models.DateTimeField(null=True, blank=True)
@@ -285,7 +289,7 @@ class Order(models.Model):
     def __str__(self):
         return f"Order #{self.order_number} - {self.product.name}"
 
-    
+
 # Cart Model
 class Cart(models.Model):
     STATUS_CHOICES = [

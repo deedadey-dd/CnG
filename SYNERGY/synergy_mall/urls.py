@@ -33,6 +33,9 @@ urlpatterns = [
     path('orders/', views.view_orders, name='view_orders'),
     path('orders/create/', views.create_order, name='create_order'),
     path('buy/<int:product_id>/', views.buy, name='buy'),
+    path('orders/vendor/', views.vendor_orders, name='vendor_orders'),
+    path('orders/user/', views.user_orders, name='user_orders'),
+    path('orders/track/', views.track_order, name='track_order'),
 
     # Wishlist URLs
     path('wishlist/create/', views.create_wishlist, name='create_wishlist'),
