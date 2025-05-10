@@ -36,6 +36,7 @@
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'all_wishlists' %}">All Wishlists</a>
                 </li>
+                <li><a class="nav-link" href="{% url 'track_order' %}">Track Order</a></li>
 
                 {% if user.is_authenticated %}
                     {% if request.user.role == 'vendor' %}
@@ -50,7 +51,7 @@
                             <a class="nav-link" href="#">My Dashboard</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#">Pending Orders</a>
+                            <a class="nav-link" href="{% url 'vendor_orders' %}">Pending Orders</a>
                         </li>
                     {% else %}
                         <!-- Regular Users views -->
@@ -87,6 +88,9 @@
                             <a class="dropdown-item" href="{% url 'profile' %}">Profile</a>
                             <div class="dropdown-divider"></div>
                             <a class="nav-link" href="{% url 'create_wishlist' %}">Create Wishlist</a>
+                            {% if request.user.role == 'RegularUser' %}
+                                <a class="nav-link" href="{% url 'user_orders' %}">My Orders</a>
+                            {% endif %}
                             <div class="dropdown-divider"></div>
                             <a class="dropdown-item" href="{% url 'logout' %}">Logout</a>
                         </div>

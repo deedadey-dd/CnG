@@ -1251,22 +1251,25 @@ def create_order(request):
     })
 
 
+from django.shortcuts import render, get_object_or_404
+from django.http import JsonResponse
+
 def track_order(request):
-    if request.method == 'POST':
+    if request.method == "POST":
         order_number = request.POST.get('order_number')
         phone_number = request.POST.get('phone_number')
 
-        try:
-            # Fetch the order by number and phone number
-            order = Order.objects.get(order_number=order_number, phone_number=phone_number)
+        # Validate the input
+        if not (order_number and phone_number):
+            return render(request, 'synergy_mall/track_order.html', {'error': 'Both fields are required.'})
 
-            return render(request, 'synergy_mall/track_order_result.html', {
-                'order': order,
-            })
+        try:
+            order = Order.objects.get(order_number=order_number, phone_number=phone_number)
         except Order.DoesNotExist:
-            return render(request, 'synergy_mall/track_order.html', {
-                'error': 'Order not found or details do not match. Please check and try again.',
-            })
+            return render(request, 'synergy_mall/track_order.html', {'error': 'Order not found.'})
+
+        # Render the order details
+        return render(request, 'synergy_mall/track_order_result.html', {'order': order})
 
     return render(request, 'synergy_mall/track_order.html')
 
@@ -1301,6 +1304,32 @@ def buy(request, product_id):
 def view_orders(request):
     orders = Order.objects.filter(user=request.user).order_by('-order_date')
     return render(request, 'synergy_mall/orders.html', {'orders': orders})
+
+
+@login_required
+def vendor_orders(request):
+    if not request.user.role == 'vendor':
+        return redirect('index')  # Redirect non-vendors to the home page
+
+    # Fetch orders for products owned by the vendor
+    vendor_products = Product.objects.filter(vendor=request.user)
+    orders = Order.objects.filter(product__in=vendor_products).order_by('-order_date')
+
+    context = {
+        'orders': orders,
+    }
+    return render(request, 'synergy_mall/vendor_orders.html', context)
+
+
+@login_required
+def user_orders(request):
+    # Fetch orders for the logged-in user
+    orders = Order.objects.filter(user=request.user).order_by('-order_date')
+
+    context = {
+        'orders': orders,
+    }
+    return render(request, 'synergy_mall/user_orders.html', context)
 
 
 def checkout(request):
